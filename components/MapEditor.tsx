@@ -1,6 +1,10 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import "ol/ol.css";
+import VectorLayer from "ol/layer/Vector";
+import VectorSource from "ol/source/Vector";
+import GeoJSON from "ol/format/GeoJSON";
+import { Stroke, Style } from "ol/style";
 import { Map, View } from "ol";
 import TileLayer from "ol/layer/Tile";
 import OSM from "ol/source/OSM";
@@ -32,6 +36,36 @@ export default function MapEditor() {
     mapRef.current = map;
     return () => map.setTarget(undefined);
   }, []);
+
+  useEffect(() => {
+    if (!mapRef.current) return;
+
+    const layerId = "admin-layer";
+
+    if (layers.administrative_boundaries) {
+      const adminLayer = new VectorLayer({
+        source: new VectorSource({
+          url: "http://localhost:8000/api/layers/administrative",
+          format: new GeoJSON(),
+        }),
+        style: new Style({
+          stroke: new Stroke({
+            color: "#3b82f6",
+            width: 2,
+          }),
+        }),
+      });
+      
+      adminLayer.set("id", layerId);
+      mapRef.current.addLayer(adminLayer);
+    } else {
+      const allLayers = mapRef.current.getLayers().getArray();
+      const layerToRemove = allLayers.find(layer => layer.get("id") === layerId);
+      if (layerToRemove) {
+        mapRef.current.removeLayer(layerToRemove);
+      }
+    }
+  }, [layers.administrative_boundaries]);
 
   return (
     <div className="relative w-full h-screen">
