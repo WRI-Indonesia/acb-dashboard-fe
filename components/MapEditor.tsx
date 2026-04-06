@@ -4,14 +4,14 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Map, View } from 'ol';
 import TileLayer from 'ol/layer/Tile';
 import OSM from 'ol/source/OSM';
+import Image from 'next/image';
 import WMTS from 'ol/source/WMTS';
 import WMTSTileGrid from 'ol/tilegrid/WMTS';
 import { get as getProjection } from 'ol/proj';
 import { getTopLeft, getWidth } from 'ol/extent';
-import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { ChevronUp, ChevronDown } from 'lucide-react';
+import { ChevronUp, ChevronDown, Map as MapIcon, Layers, Info } from 'lucide-react';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 
@@ -183,28 +183,72 @@ export default function MapEditor() {
   const activeLayerConfigs = layerConfigs.filter(c => activeStatus[String(c.id)]);
 
   return (
-    <div className="relative w-full h-screen bg-zinc-950 flex overflow-hidden">
-      {/* SIDEBAR */}
-      <div className="w-80 h-full bg-zinc-900 border-r border-zinc-800 p-6 z-20 flex flex-col shadow-xl">
-        <h1 className="text-xl font-bold text-white mb-6 tracking-tight">Spatial Explorer</h1>
-        <div className="space-y-4 overflow-y-auto custom-scrollbar">
-          {layerConfigs.map((layer) => (
-            <div key={layer.id} className="flex items-center justify-between p-3 rounded-xl bg-zinc-800/30 border border-zinc-800/50 hover:bg-zinc-800/60 transition-all">
-              <div className="space-y-1 flex-1 pr-4">
-                <Label className="text-sm font-semibold text-zinc-100 cursor-pointer">{layer.name}</Label>
-                <p className="text-[10px] text-zinc-500 line-clamp-1">{layer.short_description}</p>
+    <div className="relative w-full h-screen bg-white flex overflow-hidden font-sans">
+      
+      {/* LEFT SIDEBAR */}
+      <div className="w-[70px] h-full bg-[#031d16] flex flex-col items-center py-6 gap-8 border-r border-white/5 z-30 shadow-2xl relative">
+        <div className="w-10 h-10 relative mb-2">
+          <Image 
+            src="/bsf_logo.png" 
+            alt="BSF Logo" 
+            fill 
+            className="object-contain"
+          />
+        </div>
+
+        <div className="flex flex-col gap-4 w-full items-center">
+          <div className="w-12 h-12 bg-[#062c21] rounded-xl flex items-center justify-center shadow-inner cursor-pointer transition-all border border-white/10">
+            <Layers size={22} />
+          </div>
+
+          <div className="w-12 h-12 flex items-center justify-center hover:text-[#4ade80] rounded-xl hover:bg-[#062c21]/50 cursor-pointer transition-all">
+            <MapIcon size={22} />
+          </div>
+        </div>
+      </div>
+
+      {/* LAYER PANEL (ABSOLUTE) */}
+      <div className="absolute left-[70px] top-0 w-[310px] bg-[#20372A] flex flex-col h-fit max-h-screen z-20 shadow-2xl rounded-br-2xl">
+        <div className="p-3 pt-[48px] pr-[20px] pb-[24px] pl-[20px] shrink-0">
+          <h1 className="text-xl font-medium text-white tracking-tight leading-tight">
+            Data Spatial Layer
+          </h1>
+          <p className="text-[11px] text-[#a1b3ae] mt-2 leading-relaxed">
+            Enable/Disable Spatial Layers: Use the toggles to customize your data visualization
+          </p>
+        </div>
+
+        <div className="bg-[#d9e5db] shadow-inner overflow-hidden rounded-br-2xl min-h-0">
+          <div className="overflow-y-auto px-1 py-3 space-y-0.5 custom-scrollbar-light max-h-[calc(100vh-120px)]">
+            {layerConfigs.map((layer) => (
+              <div 
+                key={layer.id} 
+                className="flex items-center p-4 rounded-lg transition-all group hover:bg-white/20 gap-4 w-full"
+              >
+                <Switch 
+                  checked={activeStatus[layer.id] || false}
+                  onCheckedChange={(val) => setActiveStatus(prev => ({...prev, [layer.id]: val}))}
+                  className="data-[state=checked]:bg-[#20372A] data-[state=unchecked]:bg-[#ffffff]/60 shrink-0"
+                />
+                <div className="flex flex-col flex-1 min-w-0 pr-2">
+                  <Label 
+                    className="text-[13px] font-bold leading-tight cursor-pointer text-[#062c21] truncate block w-full"
+                  >
+                    {layer.name}
+                  </Label>
+                  <p className="text-[10px] mt-1 text-[#062c21]/80 truncate w-full">
+                    {layer.short_description || "Lorem ipsum dolor sit amet"}
+                  </p>
+                </div>
+                <Info size={16} className="text-[#062c21]/40 shrink-0" />
               </div>
-              <Switch 
-                checked={activeStatus[layer.id] || false}
-                onCheckedChange={(val) => setActiveStatus(prev => ({...prev, [layer.id]: val}))}
-              />
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       </div>
 
       {/* MAP AREA */}
-      <div ref={mapElement} className="flex-1 h-full relative">
+      <div ref={mapElement} className="flex-1 h-full relative z-10">
         
         {/* DYNAMIC LEGEND */}
         <div className="absolute bottom-6 right-6 z-10 flex flex-col items-end gap-0 transition-all duration-300">
@@ -260,7 +304,7 @@ export default function MapEditor() {
                                 if (colormapEntries) {
                                   return colormapEntries.map((entry: any, eIdx: number) => (
                                     <div key={`${idx}-${eIdx}`} className="flex items-center gap-3 group cursor-default">
-                                      <div className="w-4 h-4 rounded-sm border border-zinc-200 shadow-sm transition-transform group-hover:scale-110" style={{ backgroundColor: entry.color }} />
+                                      <div className="w-4 h-4 rounded-full border border-zinc-200 shadow-sm transition-transform group-hover:scale-110" style={{ backgroundColor: entry.color }} />
                                       <span className="text-[11px] text-zinc-600 font-medium">{entry.label}</span>
                                     </div>
                                   ));
@@ -269,7 +313,7 @@ export default function MapEditor() {
                                 const vectorColor = symbolizer?.Polygon?.fill || symbolizer?.Line?.stroke || "#ccc";
                                 return (
                                   <div key={idx} className="flex items-center gap-3 group cursor-default">
-                                    <div className="w-4 h-4 rounded-sm border border-zinc-200 shadow-sm transition-transform group-hover:scale-110" style={{ backgroundColor: vectorColor }} />
+                                    <div className="w-4 h-4 rounded-full border border-zinc-200 shadow-sm transition-transform group-hover:scale-110" style={{ backgroundColor: vectorColor }} />
                                     <span className="text-[11px] text-zinc-600 font-medium">{rule.title || rule.name}</span>
                                   </div>
                                 );
@@ -286,6 +330,19 @@ export default function MapEditor() {
           )}
         </div>
       </div>
+
+      <style jsx global>{`
+        .custom-scrollbar-green::-webkit-scrollbar {
+          width: 4px;
+        }
+        .custom-scrollbar-green::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .custom-scrollbar-green::-webkit-scrollbar-thumb {
+          background: rgba(255, 255, 255, 0.1);
+          border-radius: 10px;
+        }
+      `}</style>
     </div>
   );
 };
