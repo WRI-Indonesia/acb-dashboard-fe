@@ -14,7 +14,62 @@ import { Switch } from "@/components/ui/switch";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 
-const createWMTSSource = (config: any) => {
+type LayerConfig = {
+  citation: string;
+  content_date: string;
+  data_format: string;
+  description: string;
+  disclaimer: string;
+  format: string;
+  has_child: boolean;
+  id: number;
+  layers: string;
+  matrix_set: string;
+  name: string;
+  service: string;
+  short_description: string;
+  source: string;
+  source_link: string;
+  spatial_resolution: string;
+  srs: string;
+  styles: string;
+  url: string;
+  version: string;
+};
+
+type TileCoord = [z: number, x: number, y: number];
+
+type WMTSTileImage = {
+  getTileCoord: () => TileCoord;
+  getImage: () => HTMLImageElement;
+};
+
+type LegendEntry = {
+  color: string;
+  label?: string;
+};
+
+type LegendSymbolizer = {
+  Raster?: { colormap?: { entries?: LegendEntry[] } };
+  Polygon?: { fill?: string };
+  Line?: { stroke?: string };
+};
+
+type LegendRule = {
+  title?: string;
+  name?: string;
+  symbolizers: LegendSymbolizer[];
+};
+
+type LegendLayer = {
+  rules?: LegendRule[];
+};
+
+type LegendResponse = {
+  Legend?: LegendLayer[];
+};
+
+const createWMTSSource = (config: LayerConfig) => {
   const projection = getProjection("EPSG:3857");
   const projectionExtent = projection!.getExtent();
   const size = getWidth(projectionExtent) / 256;
@@ -41,14 +96,15 @@ const createWMTSSource = (config: any) => {
     requestEncoding: 'KVP',
     tileGrid: tileGrid,
     style: '',
-    tileLoadFunction: (imageTile: any, src: string) => {
-      const tileCoord = imageTile.getTileCoord();
+    tileLoadFunction: (imageTile: unknown, src: string) => {
+      const tile = imageTile as WMTSTileImage;
+      const tileCoord = tile.getTileCoord();
       const z = tileCoord[0];
       const x = tileCoord[1];
       const y = tileCoord[2];
 
       const proxyUrl = `${API_BASE_URL}/api/proxy/wmts?layer=${config.layers}&tilematrix=${z}&tilecol=${x}&tilerow=${y}`;
-      imageTile.getImage().src = proxyUrl;
+      tile.getImage().src = proxyUrl;
     }
   });
 };
@@ -57,10 +113,10 @@ export default function MapEditor() {
   const mapElement = useRef<HTMLDivElement>(null);
   const mapRef = useRef<Map | null>(null);
   
-  const [layerConfigs, setLayerConfigs] = useState<any[]>([]);
-  const [activeStatus, setActiveStatus] = useState<Record<number, boolean>>({});
+  const [layerConfigs, setLayerConfigs] = useState<LayerConfig[]>([]);
+  const [activeStatus, setActiveStatus] = useState<Record<string, boolean>>({});
   const activeTilesRef = useRef<Record<number, TileLayer<WMTS>>>({});
-  const [legendData, setLegendData] = useState<Record<string, any>>({});
+  const [legendData, setLegendData] = useState<Record<string, LegendResponse>>({});
 
   useEffect(() => {
     if (!mapElement.current) return;
@@ -105,7 +161,7 @@ export default function MapEditor() {
     if (!mapRef.current || layerConfigs.length === 0) return;
 
     layerConfigs.forEach((config) => {
-      const isActive = activeStatus[config.id];
+      const isActive = activeStatus[String(config.id)];
       const isLoaded = activeTilesRef.current[config.id];
 
       if (isActive && !isLoaded) {
@@ -122,7 +178,7 @@ export default function MapEditor() {
     });
   }, [activeStatus, layerConfigs]);
 
-  const activeLayerConfigs = layerConfigs.filter(c => activeStatus[c.id]);
+  const activeLayerConfigs = layerConfigs.filter(c => activeStatus[String(c.id)]);
 
   return (
     <div className="relative w-full h-screen bg-zinc-950 flex overflow-hidden">
@@ -170,12 +226,12 @@ export default function MapEditor() {
                     </h4>
                     
                     <div className="space-y-1.5 pl-3">
-                      {rules.map((rule: any, idx: number) => {
+                      {rules.map((rule: LegendRule, idx: number) => {
                         const symbolizer = rule.symbolizers[0];
                         const colormapEntries = symbolizer?.Raster?.colormap?.entries;
                         
                         if (colormapEntries) {
-                          return colormapEntries.map((entry: any, eIdx: number) => (
+                          return colormapEntries.map((entry: LegendEntry, eIdx: number) => (
                             <div key={`${idx}-${eIdx}`} className="flex items-center gap-2 group">
                               <div 
                                 className="w-3 h-3 rounded-sm border border-white/10 shadow-sm"
