@@ -26,6 +26,10 @@ export default function MapEditor() {
     protected_area: false,
     slope: false
   });
+  
+  const activeLayers = Object.entries(layers)
+    .filter(([_, isActive]) => isActive)
+    .map(([key]) => key);
 
   useEffect(() => {
     const map = new Map({
@@ -149,6 +153,57 @@ export default function MapEditor() {
           </div>
         </div>
       </Card>
+      {activeLayers.length > 0 && (
+        <Card className="absolute bottom-4 right-4 z-10 w-64 bg-zinc-900/90 text-white p-4 shadow-2xl border-zinc-700 backdrop-blur-sm">
+          <div className="flex items-center justify-between mb-3 border-b border-zinc-700 pb-2">
+            <h3 className="font-bold text-sm tracking-tight">Legend</h3>
+            <button className="text-[10px] bg-emerald-800 px-2 py-1 rounded hover:bg-emerald-700 transition-colors">
+              Export area as Image
+            </button>
+          </div>
+
+          <div className="space-y-4 max-h-60 overflow-y-auto custom-scrollbar">
+            {layers.administrative_boundaries && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-xs font-semibold text-zinc-300">
+                  <span className="w-3 h-3 border border-blue-500 rounded-full"></span>
+                  Administrative Boundaries
+                </div>
+                <div className="pl-5 flex items-center gap-2 text-[11px] text-zinc-400">
+                  <span className="w-2 h-2 bg-blue-500/30 border border-blue-500 rounded-full"></span>
+                  Administrative Boundaries - District
+                </div>
+              </div>
+            )}
+
+            {layers.current_land_cover && (
+              <div className="space-y-2">
+                <div className="text-xs font-semibold text-zinc-300 flex items-center gap-2">
+                  <span className="grid grid-cols-2 gap-0.5">
+                    <span className="w-1.5 h-1.5 bg-green-600"></span>
+                    <span className="w-1.5 h-1.5 bg-orange-400"></span>
+                  </span>
+                  Current land cover
+                </div>
+                <div className="pl-5 space-y-1.5">
+                  {[
+                    { color: "bg-green-700", label: "Forest" },
+                    { color: "bg-yellow-400", label: "Grassland" },
+                    { color: "bg-orange-400", label: "Cropland" },
+                    { color: "bg-blue-400", label: "Wetlands" },
+                    { color: "bg-zinc-600", label: "Built-up" },
+                  ].map((item) => (
+                    <div key={item.label} className="flex items-center gap-3 text-[11px] text-zinc-400">
+                      <span className={`w-2 h-2 rounded-full ${item.color}`}></span>
+                      {item.label}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </Card>
+      )}
     </div>
   );
 }
