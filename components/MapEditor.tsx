@@ -1,209 +1,218 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
-import "ol/ol.css";
-import VectorLayer from "ol/layer/Vector";
-import VectorSource from "ol/source/Vector";
-import GeoJSON from "ol/format/GeoJSON";
-import { Stroke, Style } from "ol/style";
-import { Map, View } from "ol";
-import TileLayer from "ol/layer/Tile";
-import OSM from "ol/source/OSM";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
+
+import React, { useEffect, useRef, useState } from 'react';
+import { Map, View } from 'ol';
+import TileLayer from 'ol/layer/Tile';
+import OSM from 'ol/source/OSM';
+import WMTS from 'ol/source/WMTS';
+import WMTSTileGrid from 'ol/tilegrid/WMTS';
+import { get as getProjection } from 'ol/proj';
+import { getTopLeft, getWidth } from 'ol/extent';
 import { Card } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
+
+const createWMTSSource = (config: any) => {
+  const projection = getProjection("EPSG:3857");
+  const projectionExtent = projection!.getExtent();
+  const size = getWidth(projectionExtent) / 256;
+  const resolutions = new Array(26);
+  const matrixIds = new Array(26);
+
+  for (let z = 0; z < 26; ++z) {
+    resolutions[z] = size / Math.pow(2, z);
+    matrixIds[z] = z.toString();
+  }
+
+  const tileGrid = new WMTSTileGrid({
+    origin: getTopLeft(projectionExtent),
+    resolutions: resolutions,
+    matrixIds: matrixIds,
+  });
+
+  return new WMTS({
+    url: `${API_BASE_URL}/api/proxy/wmts`,
+    layer: config.layers,
+    matrixSet: config.matrix_set || "WebMercatorQuad",
+    format: "image/png",
+    projection: projection!,
+    requestEncoding: 'KVP',
+    tileGrid: tileGrid,
+    style: '',
+    tileLoadFunction: (imageTile: any, src: string) => {
+      const tileCoord = imageTile.getTileCoord();
+      const z = tileCoord[0];
+      const x = tileCoord[1];
+      const y = tileCoord[2];
+
+      const proxyUrl = `${API_BASE_URL}/api/proxy/wmts?layer=${config.layers}&tilematrix=${z}&tilecol=${x}&tilerow=${y}`;
+      imageTile.getImage().src = proxyUrl;
+    }
+  });
+};
 
 export default function MapEditor() {
   const mapElement = useRef<HTMLDivElement>(null);
   const mapRef = useRef<Map | null>(null);
-
-  const [layers, setLayers] = useState({
-    administrative_boundaries: false,
-    current_land_cover: false,
-    elevation: false,
-    future_deforestation_risk: false,
-    historical_deforestation_risk: false,
-    mangrove: false,
-    protected_area: false,
-    slope: false
-  });
   
-  const activeLayers = Object.entries(layers)
-    .filter(([_, isActive]) => isActive)
-    .map(([key]) => key);
+  const [layerConfigs, setLayerConfigs] = useState<any[]>([]);
+  const [activeStatus, setActiveStatus] = useState<Record<number, boolean>>({});
+  const activeTilesRef = useRef<Record<number, TileLayer<WMTS>>>({});
+  const [legendData, setLegendData] = useState<Record<string, any>>({});
 
   useEffect(() => {
+    if (!mapElement.current) return;
+
     const map = new Map({
-      target: mapElement.current!,
-      layers: [new TileLayer({ source: new OSM() })],
-      view: new View({ center: [13139395, -209819], zoom: 5 }),
+      target: mapElement.current,
+      layers: [
+        new TileLayer({ source: new OSM() })
+      ],
+      view: new View({
+        center: [13139395, -209819], 
+        zoom: 5,
+      }),
     });
+
     mapRef.current = map;
     return () => map.setTarget(undefined);
   }, []);
 
   useEffect(() => {
-    if (!mapRef.current) return;
+    fetch(`${API_BASE_URL}/api/layers`)
+      .then(res => res.json())
+      .then(data => setLayerConfigs(data))
+      .catch(err => console.error("Gagal load layers:", err));
+  }, []);
 
-    const layerId = "admin-layer";
-
-    if (layers.administrative_boundaries) {
-      const adminLayer = new VectorLayer({
-        source: new VectorSource({
-          url: "http://localhost:8000/api/layers/administrative",
-          format: new GeoJSON(),
-        }),
-        style: new Style({
-          stroke: new Stroke({
-            color: "#3b82f6",
-            width: 2,
-          }),
-        }),
-      });
-      
-      adminLayer.set("id", layerId);
-      mapRef.current.addLayer(adminLayer);
-    } else {
-      const allLayers = mapRef.current.getLayers().getArray();
-      const layerToRemove = allLayers.find(layer => layer.get("id") === layerId);
-      if (layerToRemove) {
-        mapRef.current.removeLayer(layerToRemove);
+  useEffect(() => {
+    Object.keys(activeStatus).forEach((id) => {
+      const config = layerConfigs.find((c) => c.id === parseInt(id));
+      if (activeStatus[id] && config && !legendData[config.layers]) {
+        fetch(`${API_BASE_URL}/api/proxy/legend?layer=${config.layers}`)
+          .then((res) => res.json())
+          .then((data) => {
+            setLegendData((prev) => ({ ...prev, [config.layers]: data }));
+          })
+          .catch((err) => console.error("Error fetching legend:", err));
       }
-    }
-  }, [layers.administrative_boundaries]);
+    });
+  }, [activeStatus, layerConfigs]);
+
+  useEffect(() => {
+    if (!mapRef.current || layerConfigs.length === 0) return;
+
+    layerConfigs.forEach((config) => {
+      const isActive = activeStatus[config.id];
+      const isLoaded = activeTilesRef.current[config.id];
+
+      if (isActive && !isLoaded) {
+        const newLayer = new TileLayer({
+          source: createWMTSSource(config),
+          opacity: 0.8
+        });
+        mapRef.current?.addLayer(newLayer);
+        activeTilesRef.current[config.id] = newLayer;
+      } else if (!isActive && isLoaded) {
+        mapRef.current?.removeLayer(isLoaded);
+        delete activeTilesRef.current[config.id];
+      }
+    });
+  }, [activeStatus, layerConfigs]);
+
+  const activeLayerConfigs = layerConfigs.filter(c => activeStatus[c.id]);
 
   return (
-    <div className="relative w-full h-screen">
-      <div ref={mapElement} className="w-full h-full" />
-      
-      <Card className="absolute top-4 left-4 z-10 w-72 bg-zinc-900 text-white p-5 shadow-2xl border-zinc-700">
-        <div className="space-y-6">
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="administrative_boundaries" className="text-sm font-medium cursor-pointer">Administrative Boundaries</Label>
+    <div className="relative w-full h-screen bg-zinc-950 flex overflow-hidden">
+      {/* SIDEBAR */}
+      <div className="w-80 h-full bg-zinc-900 border-r border-zinc-800 p-6 z-20 flex flex-col shadow-xl">
+        <h1 className="text-xl font-bold text-white mb-6 tracking-tight">Spatial Explorer</h1>
+        <div className="space-y-4 overflow-y-auto custom-scrollbar">
+          {layerConfigs.map((layer) => (
+            <div key={layer.id} className="flex items-center justify-between p-3 rounded-xl bg-zinc-800/30 border border-zinc-800/50 hover:bg-zinc-800/60 transition-all">
+              <div className="space-y-1 flex-1 pr-4">
+                <Label className="text-sm font-semibold text-zinc-100 cursor-pointer">{layer.name}</Label>
+                <p className="text-[10px] text-zinc-500 line-clamp-1">{layer.short_description}</p>
+              </div>
               <Switch 
-                id="administrative_boundaries"
-                checked={layers.administrative_boundaries}
-                onCheckedChange={(val) => setLayers({...layers, administrative_boundaries: val})}
-                className="data-[state=checked]:bg-blue-500"
+                checked={activeStatus[layer.id] || false}
+                onCheckedChange={(val) => setActiveStatus(prev => ({...prev, [layer.id]: val}))}
               />
             </div>
-            <div className="flex items-center justify-between">
-              <Label htmlFor="current_land_cover" className="text-sm font-medium cursor-pointer">Current Land Cover</Label>
-              <Switch 
-                id="current_land_cover"
-                checked={layers.current_land_cover}
-                onCheckedChange={(val) => setLayers({...layers, current_land_cover: val})}
-                className="data-[state=checked]:bg-blue-500"
-              />
-            </div>
-            <div className="flex items-center justify-between">
-              <Label htmlFor="elevation" className="text-sm font-medium cursor-pointer">Elevation</Label>
-              <Switch 
-                id="elevation"
-                checked={layers.elevation}
-                onCheckedChange={(val) => setLayers({...layers, elevation: val})}
-                className="data-[state=checked]:bg-blue-500"
-              />
-            </div>
-            <div className="flex items-center justify-between">
-              <Label htmlFor="future_deforestation_risk" className="text-sm font-medium cursor-pointer">Future Deforestation Risk</Label>
-              <Switch 
-                id="future_deforestation_risk"
-                checked={layers.future_deforestation_risk}
-                onCheckedChange={(val) => setLayers({...layers, future_deforestation_risk: val})}
-                className="data-[state=checked]:bg-blue-500"
-              />
-            </div>
-            <div className="flex items-center justify-between">
-              <Label htmlFor="historical_deforestation_risk" className="text-sm font-medium cursor-pointer">Historical Deforestation Risk</Label>
-              <Switch 
-                id="historical_deforestation_risk"
-                checked={layers.historical_deforestation_risk}
-                onCheckedChange={(val) => setLayers({...layers, historical_deforestation_risk: val})}
-                className="data-[state=checked]:bg-blue-500"
-              />
-            </div>
-            <div className="flex items-center justify-between">
-              <Label htmlFor="mangrove" className="text-sm font-medium cursor-pointer">Mangrove</Label>
-              <Switch 
-                id="mangrove"
-                checked={layers.mangrove}
-                onCheckedChange={(val) => setLayers({...layers, mangrove: val})}
-                className="data-[state=checked]:bg-blue-500"
-              />
-            </div>
-            <div className="flex items-center justify-between">
-              <Label htmlFor="protected_area" className="text-sm font-medium cursor-pointer">Protected Area / Kawasan Hutan</Label>
-              <Switch 
-                id="protected_area"
-                checked={layers.protected_area}
-                onCheckedChange={(val) => setLayers({...layers, protected_area: val})}
-                className="data-[state=checked]:bg-blue-500"
-              />
-            </div>
-            <div className="flex items-center justify-between">
-              <Label htmlFor="slope" className="text-sm font-medium cursor-pointer">Slope</Label>
-              <Switch 
-                id="slope"
-                checked={layers.slope}
-                onCheckedChange={(val) => setLayers({...layers, slope: val})}
-                className="data-[state=checked]:bg-blue-500"
-              />
-            </div>
-          </div>
+          ))}
         </div>
-      </Card>
-      {activeLayers.length > 0 && (
-        <Card className="absolute bottom-4 right-4 z-10 w-64 bg-zinc-900/90 text-white p-4 shadow-2xl border-zinc-700 backdrop-blur-sm">
-          <div className="flex items-center justify-between mb-3 border-b border-zinc-700 pb-2">
-            <h3 className="font-bold text-sm tracking-tight">Legend</h3>
-            <button className="text-[10px] bg-emerald-800 px-2 py-1 rounded hover:bg-emerald-700 transition-colors">
-              Export area as Image
-            </button>
-          </div>
+      </div>
 
-          <div className="space-y-4 max-h-60 overflow-y-auto custom-scrollbar">
-            {layers.administrative_boundaries && (
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 text-xs font-semibold text-zinc-300">
-                  <span className="w-3 h-3 border border-blue-500 rounded-full"></span>
-                  Administrative Boundaries
-                </div>
-                <div className="pl-5 flex items-center gap-2 text-[11px] text-zinc-400">
-                  <span className="w-2 h-2 bg-blue-500/30 border border-blue-500 rounded-full"></span>
-                  Administrative Boundaries - District
-                </div>
-              </div>
-            )}
+      {/* MAP AREA */}
+      <div ref={mapElement} className="flex-1 h-full relative">
+        
+        {/* DYNAMIC LEGEND */}
+        {activeLayerConfigs.length > 0 && (
+          <Card className="absolute bottom-6 right-6 z-10 w-72 bg-zinc-950/90 text-white p-5 shadow-2xl border-zinc-800 backdrop-blur-md rounded-2xl flex flex-col">
+            <div className="flex items-center justify-between mb-4 border-b border-zinc-800 pb-3">
+              <h3 className="font-bold text-xs uppercase tracking-widest text-emerald-500">Legend</h3>
+              <span className="text-[9px] text-zinc-500 bg-zinc-800 px-2 py-0.5 rounded-full">Live Data</span>
+            </div>
 
-            {layers.current_land_cover && (
-              <div className="space-y-2">
-                <div className="text-xs font-semibold text-zinc-300 flex items-center gap-2">
-                  <span className="grid grid-cols-2 gap-0.5">
-                    <span className="w-1.5 h-1.5 bg-green-600"></span>
-                    <span className="w-1.5 h-1.5 bg-orange-400"></span>
-                  </span>
-                  Current land cover
-                </div>
-                <div className="pl-5 space-y-1.5">
-                  {[
-                    { color: "bg-green-700", label: "Forest" },
-                    { color: "bg-yellow-400", label: "Grassland" },
-                    { color: "bg-orange-400", label: "Cropland" },
-                    { color: "bg-blue-400", label: "Wetlands" },
-                    { color: "bg-zinc-600", label: "Built-up" },
-                  ].map((item) => (
-                    <div key={item.label} className="flex items-center gap-3 text-[11px] text-zinc-400">
-                      <span className={`w-2 h-2 rounded-full ${item.color}`}></span>
-                      {item.label}
+            <div className="space-y-6 max-h-96 overflow-y-auto custom-scrollbar pr-1">
+              {activeLayerConfigs.map((config) => {
+                const currentLegend = legendData[config.layers];
+                const layerData = currentLegend?.Legend?.[0];
+                const rules = layerData?.rules || [];
+
+                return (
+                  <div key={config.id} className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    <h4 className="text-[11px] font-bold text-zinc-200 mb-3 flex items-center gap-2">
+                      <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
+                      {config.name}
+                    </h4>
+                    
+                    <div className="space-y-1.5 pl-3">
+                      {rules.map((rule: any, idx: number) => {
+                        const symbolizer = rule.symbolizers[0];
+                        const colormapEntries = symbolizer?.Raster?.colormap?.entries;
+                        
+                        if (colormapEntries) {
+                          return colormapEntries.map((entry: any, eIdx: number) => (
+                            <div key={`${idx}-${eIdx}`} className="flex items-center gap-2 group">
+                              <div 
+                                className="w-3 h-3 rounded-sm border border-white/10 shadow-sm"
+                                style={{ backgroundColor: entry.color }}
+                              />
+                              <span className="text-[10px] text-zinc-400 group-hover:text-zinc-200 transition-colors">
+                                {entry.label}
+                              </span>
+                            </div>
+                          ));
+                        }
+
+                        const vectorColor = symbolizer?.Polygon?.fill || symbolizer?.Line?.stroke || "#ccc";
+                        return (
+                          <div key={idx} className="flex items-center gap-2 group">
+                            <div 
+                              className="w-3 h-3 rounded-sm border border-white/10 shadow-sm"
+                              style={{ backgroundColor: vectorColor }}
+                            />
+                            <span className="text-[10px] text-zinc-400 group-hover:text-zinc-200 transition-colors">
+                              {rule.title || rule.name || "Unnamed Boundary"}
+                            </span>
+                          </div>
+                        );
+                      })}
+
+                      {!currentLegend && (
+                        <p className="text-[10px] text-zinc-600 animate-pulse italic">Loading colors...</p>
+                      )}
                     </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        </Card>
-      )}
+                  </div>
+                );
+              })}
+            </div>
+          </Card>
+        )}
+      </div>
     </div>
   );
-}
+};
