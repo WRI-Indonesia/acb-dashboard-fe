@@ -11,6 +11,7 @@ import { getTopLeft, getWidth } from 'ol/extent';
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { ChevronUp, ChevronDown } from 'lucide-react';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 
@@ -117,6 +118,7 @@ export default function MapEditor() {
   const [activeStatus, setActiveStatus] = useState<Record<string, boolean>>({});
   const activeTilesRef = useRef<Record<number, TileLayer<WMTS>>>({});
   const [legendData, setLegendData] = useState<Record<string, LegendResponse>>({});
+  const [isLegendExpanded, setIsLegendExpanded] = useState(true);
 
   useEffect(() => {
     if (!mapElement.current) return;
@@ -205,69 +207,84 @@ export default function MapEditor() {
       <div ref={mapElement} className="flex-1 h-full relative">
         
         {/* DYNAMIC LEGEND */}
-        {activeLayerConfigs.length > 0 && (
-          <Card className="absolute bottom-6 right-6 z-10 w-72 bg-zinc-950/90 text-white p-5 shadow-2xl border-zinc-800 backdrop-blur-md rounded-2xl flex flex-col">
-            <div className="flex items-center justify-between mb-4 border-b border-zinc-800 pb-3">
-              <h3 className="font-bold text-xs uppercase tracking-widest text-emerald-500">Legend</h3>
-              <span className="text-[9px] text-zinc-500 bg-zinc-800 px-2 py-0.5 rounded-full">Live Data</span>
-            </div>
+        <div className="absolute bottom-6 right-6 z-10 flex flex-col items-end gap-0 transition-all duration-300">
+          
+          <button 
+            onClick={() => setIsLegendExpanded(!isLegendExpanded)}
+            className="bg-white p-1.5 rounded-t-lg shadow-sm border-x border-t border-zinc-200 text-zinc-800 hover:bg-zinc-50 transition-all flex items-center justify-center w-10 h-8"
+          >
+            {isLegendExpanded ? <ChevronDown size={20} /> : <ChevronUp size={20} />}
+          </button>
 
-            <div className="space-y-6 max-h-96 overflow-y-auto custom-scrollbar pr-1">
-              {activeLayerConfigs.map((config) => {
-                const currentLegend = legendData[config.layers];
-                const layerData = currentLegend?.Legend?.[0];
-                const rules = layerData?.rules || [];
+          {isLegendExpanded && (
+            <div className="w-[380px] bg-white shadow-2xl border-zinc-200 overflow-hidden rounded-l-xl rounded-br-xl animate-in fade-in slide-in-from-bottom-2 duration-200 flex flex-col">
+              <div className="bg-[#064e3b] px-5 py-3.5 flex items-center justify-between">
+                <h3 className="font-bold text-sm text-white tracking-wide">Legend</h3>
+                
+                <button className="bg-[#059669] hover:bg-[#047857] text-white text-[10px] font-medium px-4 py-1.5 rounded-full transition-colors">
+                  Export area as Image
+                </button>
+              </div>
 
-                return (
-                  <div key={config.id} className="animate-in fade-in slide-in-from-bottom-2 duration-300">
-                    <h4 className="text-[11px] font-bold text-zinc-200 mb-3 flex items-center gap-2">
-                      <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
-                      {config.name}
-                    </h4>
-                    
-                    <div className="space-y-1.5 pl-3">
-                      {rules.map((rule: LegendRule, idx: number) => {
-                        const symbolizer = rule.symbolizers[0];
-                        const colormapEntries = symbolizer?.Raster?.colormap?.entries;
-                        
-                        if (colormapEntries) {
-                          return colormapEntries.map((entry: LegendEntry, eIdx: number) => (
-                            <div key={`${idx}-${eIdx}`} className="flex items-center gap-2 group">
-                              <div 
-                                className="w-3 h-3 rounded-sm border border-white/10 shadow-sm"
-                                style={{ backgroundColor: entry.color }}
-                              />
-                              <span className="text-[10px] text-zinc-400 group-hover:text-zinc-200 transition-colors">
-                                {entry.label}
-                              </span>
-                            </div>
-                          ));
-                        }
+              <div className="bg-white">
+                {activeLayerConfigs.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-[90px]">
+                    <p className="text-zinc-400 text-[13px] mb-2 font-medium">No layers data is selected</p>
+                    <div className="flex items-center gap-3 text-[#064e3b] font-bold">
+                      <svg width="24" height="16" viewBox="0 0 28 20" fill="none">
+                          <rect x="0.5" y="4.5" width="23" height="11" rx="5.5" fill="white" stroke="#064E3B"/>
+                          <circle cx="7" cy="10" r="3.5" fill="#064E3B"/>
+                      </svg>
+                      <span className="text-[14px]">Activate your layers filter first</span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-6 max-h-[350px] overflow-y-auto custom-scrollbar">
+                    <div className="space-y-6">
+                      {activeLayerConfigs.map((config) => {
+                        const currentLegend = legendData[config.layers];
+                        const rules = currentLegend?.Legend?.[0]?.rules || [];
 
-                        const vectorColor = symbolizer?.Polygon?.fill || symbolizer?.Line?.stroke || "#ccc";
                         return (
-                          <div key={idx} className="flex items-center gap-2 group">
-                            <div 
-                              className="w-3 h-3 rounded-sm border border-white/10 shadow-sm"
-                              style={{ backgroundColor: vectorColor }}
-                            />
-                            <span className="text-[10px] text-zinc-400 group-hover:text-zinc-200 transition-colors">
-                              {rule.title || rule.name || "Unnamed Boundary"}
-                            </span>
+                          <div key={config.id} className="animate-in fade-in duration-300">
+                            <h4 className="text-[11px] font-bold text-zinc-800 mb-3 flex items-center gap-2 uppercase tracking-tight">
+                              <span className="w-1.5 h-1.5 bg-[#059669] rounded-full"></span>
+                              {config.name}
+                            </h4>
+                            
+                            <div className="space-y-2.5 pl-4 border-l border-zinc-100 ml-0.5">
+                              {rules.map((rule: any, idx: number) => {
+                                const symbolizer = rule.symbolizers[0];
+                                const colormapEntries = symbolizer?.Raster?.colormap?.entries;
+                                
+                                if (colormapEntries) {
+                                  return colormapEntries.map((entry: any, eIdx: number) => (
+                                    <div key={`${idx}-${eIdx}`} className="flex items-center gap-3 group cursor-default">
+                                      <div className="w-4 h-4 rounded-sm border border-zinc-200 shadow-sm transition-transform group-hover:scale-110" style={{ backgroundColor: entry.color }} />
+                                      <span className="text-[11px] text-zinc-600 font-medium">{entry.label}</span>
+                                    </div>
+                                  ));
+                                }
+
+                                const vectorColor = symbolizer?.Polygon?.fill || symbolizer?.Line?.stroke || "#ccc";
+                                return (
+                                  <div key={idx} className="flex items-center gap-3 group cursor-default">
+                                    <div className="w-4 h-4 rounded-sm border border-zinc-200 shadow-sm transition-transform group-hover:scale-110" style={{ backgroundColor: vectorColor }} />
+                                    <span className="text-[11px] text-zinc-600 font-medium">{rule.title || rule.name}</span>
+                                  </div>
+                                );
+                              })}
+                            </div>
                           </div>
                         );
                       })}
-
-                      {!currentLegend && (
-                        <p className="text-[10px] text-zinc-600 animate-pulse italic">Loading colors...</p>
-                      )}
                     </div>
                   </div>
-                );
-              })}
+                )}
+              </div>
             </div>
-          </Card>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );
