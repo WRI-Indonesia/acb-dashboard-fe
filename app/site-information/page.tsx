@@ -86,6 +86,7 @@ export default function SiteInformation() {
   const pathname = usePathname();
   const [isLegendExpanded, setIsLegendExpanded] = useState(true);
   const [selectedSite, setSelectedSite] = useState<SiteDetailData | null>(null);
+  const detailAbortRef = useRef<AbortController | null>(null);
   const [hoverData, setHoverData] = useState<HoverData | null>(null);
   const [pointerPos, setPointerPos] = useState({ x: 0, y: 0 });
 
@@ -121,10 +122,41 @@ export default function SiteInformation() {
 
     map.on('click', (e) => {
       const feature = map.forEachFeatureAtPixel(e.pixel, (f) => f);
-      if (feature) {
-        const properties = feature.getProperties();
-        setSelectedSite(properties as unknown as SiteDetailData);
+      if (!feature) {
+        detailAbortRef.current?.abort();
+        detailAbortRef.current = null;
+        setSelectedSite(null);
+        return;
       }
+
+      const properties = feature.getProperties() as { id?: string | number; name?: string; area?: number };
+      const siteId = properties.id;
+      if (siteId == null) return;
+
+      setSelectedSite({
+        country: null,
+        ahp_name: properties.name ?? null,
+        area_ha: typeof properties.area === 'number' ? properties.area : null,
+        class_description: null,
+        deforestation: null,
+        carbon_emission: null,
+        biodiversity_index_analysis: null,
+      });
+
+      detailAbortRef.current?.abort();
+      const controller = new AbortController();
+      detailAbortRef.current = controller;
+
+      fetch(`${API_BASE_URL}/api/v1/geos/polygon/${siteId}`, { signal: controller.signal })
+        .then((res) => res.json())
+        .then((json: { message?: string; data?: SiteDetailData }) => {
+          if (!json?.data) return;
+          setSelectedSite(json.data);
+        })
+        .catch((err) => {
+          if (err?.name === 'AbortError') return;
+          console.error('Error fetch site detail:', err);
+        });
     });
 
     map.on('pointermove', (e) => {
@@ -305,7 +337,7 @@ export default function SiteInformation() {
         {isLegendExpanded && (
           <div className="w-[380px] bg-white shadow-2xl overflow-hidden rounded-l-xl rounded-br-xl animate-in fade-in slide-in-from-bottom-2 duration-200 flex flex-col">
             
-            <div className="bg-[#064e3b] px-5 py-3.5 flex items-center justify-between">
+            <div className="bg-[#3A463D] px-5 py-3.5 flex items-center justify-between">
               <h3 className="font-bold text-sm text-white tracking-wide">Legend</h3>
               
               <button className="bg-[#059669] hover:bg-[#047857] text-white text-[10px] font-medium px-4 py-1.5 rounded-full transition-colors">
