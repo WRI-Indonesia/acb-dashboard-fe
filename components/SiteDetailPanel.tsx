@@ -1,12 +1,12 @@
 "use client";
 
 import React, { useState } from 'react';
+import type { SiteDetailData, BiodiversityIndexData } from '../types/site';
 import Image from 'next/image';
-import { ChevronDown, ChevronUp, Share2, TreeDeciduous } from 'lucide-react';
+import { ChevronDown, ChevronUp, Share2 } from 'lucide-react';
 import Highcharts from 'highcharts';
 import HighchartsReact from 'highcharts-react-official';
 
-// Dummy data based on the user's example
 const siteDetailData = {
     country: "Indonesia",
     ahp_name: "Humbo Community Managed Forestry (FMNR) Project",
@@ -80,7 +80,7 @@ const chartOptions: Highcharts.Options = {
     }]
 };
 
-const biodiversityChartOptions = (title: string, data: any[]): Highcharts.Options => ({
+const biodiversityChartOptions = (title: string, data: BiodiversityIndexData[]): Highcharts.Options => ({
     chart: { type: 'line' },
     title: { text: title },
     xAxis: {
@@ -97,8 +97,12 @@ const biodiversityChartOptions = (title: string, data: any[]): Highcharts.Option
     }]
 });
 
+type SiteDetailPanelProps = {
+    site: SiteDetailData;
+    onClose: () => void;
+}
 
-export default function SiteDetailPanel({ site, onClose }: { site: any; onClose: () => void }) {
+export default function SiteDetailPanel({ site, onClose }: SiteDetailPanelProps) {
     const [activeTab, setActiveTab] = useState(10);
 
     if (!site) return null;
@@ -109,7 +113,7 @@ export default function SiteDetailPanel({ site, onClose }: { site: any; onClose:
                 <button onClick={onClose} className="mb-2 text-sm">&larr; Back to Map</button>
                 <h2 className="text-xl font-bold">Site Information</h2>
                 <p className="text-xs text-white/80 mt-1">
-                    Explore our interactive map for a comprehensive overview of many restoration and conservation sites, showcasing the planet's rich biodiversity and protected areas.
+                    Explore our interactive map for a comprehensive overview of many restoration and conservation sites, showcasing the planet`&apos;`s rich biodiversity and protected areas.
                 </p>
             </div>
 

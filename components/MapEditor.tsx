@@ -99,7 +99,7 @@ const createWMTSSource = (config: LayerConfig) => {
     requestEncoding: 'KVP',
     tileGrid: tileGrid,
     style: '',
-    tileLoadFunction: (imageTile: unknown, src: string) => {
+    tileLoadFunction: (imageTile: unknown) => {
       const tile = imageTile as WMTSTileImage;
       const tileCoord = tile.getTileCoord();
       const z = tileCoord[0];
@@ -308,12 +308,12 @@ export default function MapEditor() {
                             </h4>
                             
                             <div className="space-y-2.5 pl-4 border-l border-zinc-100 ml-0.5">
-                              {rules.map((rule: any, idx: number) => {
+                              {rules.map((rule: LegendRule, idx: number) => {
                                 const symbolizer = rule.symbolizers[0];
                                 const colormapEntries = symbolizer?.Raster?.colormap?.entries;
                                 
                                 if (colormapEntries) {
-                                  return colormapEntries.map((entry: any, eIdx: number) => (
+                                  return colormapEntries.map((entry: LegendEntry, eIdx: number) => (
                                     <div key={`${idx}-${eIdx}`} className="flex items-center gap-3 group cursor-default">
                                       <div className="w-4 h-4 rounded-full border border-zinc-200 shadow-sm transition-transform group-hover:scale-110" style={{ backgroundColor: entry.color }} />
                                       <span className="text-[11px] text-zinc-600 font-medium">{entry.label}</span>

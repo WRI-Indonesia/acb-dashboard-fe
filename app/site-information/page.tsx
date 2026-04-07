@@ -13,6 +13,7 @@ import { ChevronDown, ChevronUp, Layers, Map as MapIcon } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import SiteDetailPanel from '@/components/SiteDetailPanel';
+import type { SiteDetailData } from '../../types/site';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 
@@ -26,16 +27,66 @@ const polygonStyle = new Style({
   }),
 });
 
+type HoverData = {
+  name: string;
+  area: number;
+  id?: string | number;
+}
+
+type Position = number[];
+type PointGeometry = {
+  type: 'Point';
+  coordinates: Position;
+}
+type MultiPointGeometry = {
+  type: 'MultiPoint';
+  coordinates: Position[];
+}
+type LineStringGeometry = {
+  type: 'LineString';
+  coordinates: Position[];
+}
+type MultiLineStringGeometry = {
+  type: 'MultiLineString';
+  coordinates: Position[][];
+}
+type PolygonGeometry = {
+  type: 'Polygon';
+  coordinates: Position[][];
+}
+type MultiPolygonGeometry = {
+  type: 'MultiPolygon';
+  coordinates: Position[][][];
+}
+type GeometryCollectionGeometry = {
+  type: 'GeometryCollection';
+  geometries: GeoJSONGeometry[];
+}
+type GeoJSONGeometry =
+  | PointGeometry
+  | MultiPointGeometry
+  | LineStringGeometry
+  | MultiLineStringGeometry
+  | PolygonGeometry
+  | MultiPolygonGeometry
+  | GeometryCollectionGeometry;
+
+type GeoDataItem = {
+  ahpname: string;
+  ahpsiteid: string | number;
+  off_area: number;
+  geometry: GeoJSONGeometry;
+}
+
 export default function SiteInformation() {
   const mapElement = useRef<HTMLDivElement>(null);
   const mapRef = useRef<Map | null>(null);
   const vectorSourceRef = useRef<VectorSource | null>(null);
-  const [geoData, setGeoData] = useState<any>(null);
+  const [geoData, setGeoData] = useState<GeoDataItem[] | null>(null);
   const pathname = usePathname();
   const [isLegendExpanded, setIsLegendExpanded] = useState(true);
-  const [selectedSite, setSelectedSite] = useState<any>(null);
-  const [isLoadingDetail, setIsLoadingDetail] = useState(false);
-  const [hoverData, setHoverData] = useState<any>(null);
+  const [selectedSite, setSelectedSite] = useState<SiteDetailData | null>(null);
+  const [hoverData, setHoverData] = useState<HoverData | null>(null);
   const [pointerPos, setPointerPos] = useState({ x: 0, y: 0 });
 
   useEffect(() => {
@@ -72,7 +123,7 @@ export default function SiteInformation() {
       const feature = map.forEachFeatureAtPixel(e.pixel, (f) => f);
       if (feature) {
         const properties = feature.getProperties();
-        setSelectedSite(properties);
+        setSelectedSite(properties as unknown as SiteDetailData);
       }
     });
 
@@ -82,7 +133,11 @@ export default function SiteInformation() {
       if (feature) {
         const properties = feature.getProperties();
         
-        setHoverData(properties);
+        setHoverData({
+          name: properties.name,
+          area: properties.area,
+          id: properties.id
+        });
         setPointerPos({ x: e.pixel[0], y: e.pixel[1] });
         
         map.getTargetElement().style.cursor = 'pointer';
@@ -101,7 +156,7 @@ export default function SiteInformation() {
       try {
         const featureCollection = {
           type: 'FeatureCollection',
-          features: geoData.map((item: any) => ({
+          features: geoData.map((item) => ({
             type: 'Feature',
             geometry: item.geometry, 
             properties: {
@@ -179,7 +234,7 @@ export default function SiteInformation() {
           <div className="bg-[#20372a] p-6">
             <h1 className="text-white text-xl font-bold">Site Information</h1>
             <p className="text-[#a1b3ae] text-xs mt-2 leading-relaxed">
-              Explore our interactive map for a comprehensive overview of many restoration and conservation sites, showcasing the planet's rich biodiversity and protected areas.
+              Explore our interactive map for a comprehensive overview of many restoration and conservation sites, showcasing the planet`&apos;`s rich biodiversity and protected areas.
             </p>
           </div>
 
