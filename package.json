@@ -13,6 +13,8 @@
     "@types/ol": "^6.5.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "highcharts": "^12.5.0",
+    "highcharts-react-official": "^3.2.3",
     "lucide-react": "^1.7.0",
     "next": "15.0.0-rc.1",
     "ol": "^10.8.0",

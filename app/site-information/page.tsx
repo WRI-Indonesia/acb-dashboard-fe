@@ -9,9 +9,10 @@ import VectorSource from 'ol/source/Vector';
 import GeoJSON from 'ol/format/GeoJSON';
 import Image from 'next/image';
 import { Style, Stroke, Fill } from 'ol/style';
-import { ChevronDown, ChevronUp, Info, Layers, Map as MapIcon } from 'lucide-react';
+import { ChevronDown, ChevronUp, Layers, Map as MapIcon } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import SiteDetailPanel from '@/components/SiteDetailPanel';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 
@@ -32,6 +33,10 @@ export default function SiteInformation() {
   const [geoData, setGeoData] = useState<any>(null);
   const pathname = usePathname();
   const [isLegendExpanded, setIsLegendExpanded] = useState(true);
+  const [selectedSite, setSelectedSite] = useState<any>(null);
+  const [isLoadingDetail, setIsLoadingDetail] = useState(false);
+  const [hoverData, setHoverData] = useState<any>(null);
+  const [pointerPos, setPointerPos] = useState({ x: 0, y: 0 });
 
   useEffect(() => {
     fetch(`${API_BASE_URL}/api/v1/geos/polygon`)
@@ -61,6 +66,30 @@ export default function SiteInformation() {
         center: [13139395, -209819],
         zoom: 5,
       }),
+    });
+
+    map.on('click', (e) => {
+      const feature = map.forEachFeatureAtPixel(e.pixel, (f) => f);
+      if (feature) {
+        const properties = feature.getProperties();
+        setSelectedSite(properties);
+      }
+    });
+
+    map.on('pointermove', (e) => {
+      const feature = map.forEachFeatureAtPixel(e.pixel, (f) => f);
+      
+      if (feature) {
+        const properties = feature.getProperties();
+        
+        setHoverData(properties);
+        setPointerPos({ x: e.pixel[0], y: e.pixel[1] });
+        
+        map.getTargetElement().style.cursor = 'pointer';
+      } else {
+        setHoverData(null);
+        map.getTargetElement().style.cursor = '';
+      }
     });
 
     mapRef.current = map;
@@ -108,6 +137,12 @@ export default function SiteInformation() {
 
   return (
     <div className="relative w-full h-screen bg-white flex overflow-hidden font-sans">
+      {selectedSite && (
+        <SiteDetailPanel
+          site={selectedSite}
+          onClose={() => setSelectedSite(null)}
+        />
+      )}
       
       {/* LEFT SIDEBAR */}
       <div className="w-[70px] h-full bg-[#031d16] flex flex-col items-center py-6 gap-8 border-r border-white/5 z-30 shadow-2xl relative">
@@ -121,7 +156,6 @@ export default function SiteInformation() {
         </div>
 
         <div className="flex flex-col gap-4 w-full items-center">
-          {/* Tombol Map Editor (Balik ke Home) */}
           <Link href="/">
             <div className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all border ${
               pathname === '/' ? 'bg-[#062c21] border-white/10 text-[#4ade80]' : 'text-white/40 hover:text-[#4ade80] hover:bg-[#062c21]/50 border-transparent'
@@ -130,7 +164,6 @@ export default function SiteInformation() {
             </div>
           </Link>
 
-          {/* Tombol Site Info (Aktif) */}
           <Link href="/site-information">
             <div className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all border ${
               pathname === '/site-information' ? 'bg-[#062c21] border-white/10 text-[#4ade80]' : 'text-white/40 hover:text-[#4ade80] hover:bg-[#062c21]/50 border-transparent'
@@ -141,7 +174,7 @@ export default function SiteInformation() {
         </div>
       </div>
 
-      <div ref={mapElement} className="flex-1 h-full relative z-10">
+      <div ref={mapElement} className="flex-1 relative z-10">
         <div className="absolute top-0 left-0 z-20 flex flex-col w-[500px] shadow-2xl overflow-hidden rounded-br-2xl border-r border-b border-white/10">
           <div className="bg-[#20372a] p-6">
             <h1 className="text-white text-xl font-bold">Site Information</h1>
@@ -168,6 +201,42 @@ export default function SiteInformation() {
           </div>
         </div>
       </div>
+
+      {hoverData && !selectedSite && (
+        <div 
+          className="absolute z-50 pointer-events-none bg-white rounded-xl shadow-2xl border border-zinc-100 w-[280px] animate-in fade-in zoom-in duration-200 overflow-hidden"
+          style={{ 
+            left: pointerPos.x + 85, 
+            top: pointerPos.y + 15 
+          }}
+        >
+          <div className="relative w-full h-40">
+            <Image 
+              src="/forest_placeholder.jpg" 
+              fill 
+              className="object-cover" 
+              alt="Preview Site" 
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
+            <div className="absolute bottom-0 left-0 right-0 p-4 text-white">
+              <h4 className="font-bold text-[15px] leading-tight line-clamp-2">
+                {hoverData.name}
+              </h4>
+              <div className="flex items-center justify-between mt-2">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[11px] font-semibold text-white/80">Sulawesi, Indonesia</span>
+                </div>
+                <div className="flex items-baseline gap-1">
+                  <span className="text-[13px] font-bold">
+                    {Number(hoverData.area).toLocaleString()}
+                  </span>
+                  <span className="text-[10px] font-semibold text-white/80">ha</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* DYNAMIC LEGEND */}
       <div className="absolute bottom-6 right-6 z-10 flex flex-col items-end gap-0 transition-all duration-300">
