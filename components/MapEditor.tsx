@@ -12,6 +12,8 @@ import { getTopLeft, getWidth } from 'ol/extent';
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { ChevronUp, ChevronDown, Map as MapIcon, Layers, Info } from 'lucide-react';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 
@@ -89,7 +91,7 @@ const createWMTSSource = (config: LayerConfig) => {
   });
 
   return new WMTS({
-    url: `${API_BASE_URL}/api/proxy/wmts`,
+    url: `${API_BASE_URL}/api/v1/proxy/wmts`,
     layer: config.layers,
     matrixSet: config.matrix_set || "WebMercatorQuad",
     format: "image/png",
@@ -104,7 +106,7 @@ const createWMTSSource = (config: LayerConfig) => {
       const x = tileCoord[1];
       const y = tileCoord[2];
 
-      const proxyUrl = `${API_BASE_URL}/api/proxy/wmts?layer=${config.layers}&tilematrix=${z}&tilecol=${x}&tilerow=${y}`;
+      const proxyUrl = `${API_BASE_URL}/api/v1/proxy/wmts?layer=${config.layers}&tilematrix=${z}&tilecol=${x}&tilerow=${y}`;
       tile.getImage().src = proxyUrl;
     }
   });
@@ -139,7 +141,7 @@ export default function MapEditor() {
   }, []);
 
   useEffect(() => {
-    fetch(`${API_BASE_URL}/api/layers`)
+    fetch(`${API_BASE_URL}/api/v1/layers`)
       .then(res => res.json())
       .then(data => setLayerConfigs(data))
       .catch(err => console.error("Gagal load layers:", err));
@@ -149,7 +151,7 @@ export default function MapEditor() {
     Object.keys(activeStatus).forEach((id) => {
       const config = layerConfigs.find((c) => c.id === parseInt(id));
       if (activeStatus[id] && config && !legendData[config.layers]) {
-        fetch(`${API_BASE_URL}/api/proxy/legend?layer=${config.layers}`)
+        fetch(`${API_BASE_URL}/api/v1/proxy/legend?layer=${config.layers}`)
           .then((res) => res.json())
           .then((data) => {
             setLegendData((prev) => ({ ...prev, [config.layers]: data }));
@@ -181,6 +183,7 @@ export default function MapEditor() {
   }, [activeStatus, layerConfigs]);
 
   const activeLayerConfigs = layerConfigs.filter(c => activeStatus[String(c.id)]);
+  const pathname = usePathname();
 
   return (
     <div className="relative w-full h-screen bg-white flex overflow-hidden font-sans">
@@ -197,13 +200,21 @@ export default function MapEditor() {
         </div>
 
         <div className="flex flex-col gap-4 w-full items-center">
-          <div className="w-12 h-12 bg-[#062c21] rounded-xl flex items-center justify-center shadow-inner cursor-pointer transition-all border border-white/10">
-            <Layers size={22} />
-          </div>
+          <Link href="/">
+            <div className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-inner cursor-pointer transition-all border ${
+              pathname === '/' ? 'bg-[#062c21] border-white/10' : 'hover:bg-[#062c21]/50 border-transparent text-white/50'
+            }`}>
+              <Layers size={22} />
+            </div>
+          </Link>
 
-          <div className="w-12 h-12 flex items-center justify-center hover:text-[#4ade80] rounded-xl hover:bg-[#062c21]/50 cursor-pointer transition-all">
-            <MapIcon size={22} />
-          </div>
+          <Link href="/site-information">
+            <div className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-inner cursor-pointer transition-all border ${
+              pathname === '/site-information' ? 'bg-[#062c21] border-white/10 text-white' : 'hover:bg-[#062c21]/50 border-transparent text-white/50'
+            }`}>
+              <MapIcon size={22} />
+            </div>
+          </Link>
         </div>
       </div>
 
