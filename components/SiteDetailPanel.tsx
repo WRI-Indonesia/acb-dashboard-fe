@@ -49,12 +49,17 @@ const siteDetailData = {
 const Section: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => {
     const [isCollapsed, setIsCollapsed] = useState(false);
     return (
-        <div className="border-b border-zinc-200 bg-[#e3e7c7]">
+        <div className="relative bg-[#e3e7c7] pb-8">
             <button onClick={() => setIsCollapsed(!isCollapsed)} className="w-full flex justify-between items-center p-4 bg-[#e3e7c7]">
                 <h3 className="font-bold text-lg text-[#265F44]">{title}</h3>
                 {isCollapsed ? <ChevronDown className="text-[#265F44]" /> : <ChevronUp className="text-[#265F44]"/>}
             </button>
             {!isCollapsed && <div className="rounded-lg p-6">{children}</div>}
+
+            <div
+                className="absolute left-8 right-8 h-[6px] bg-[#9fb59f] rounded-lg opacity-80"
+                style={{ bottom: 10, pointerEvents: 'none' }}
+            />
         </div>
     );
 };
@@ -81,20 +86,58 @@ const chartOptions: Highcharts.Options = {
 };
 
 const biodiversityChartOptions = (title: string, data: BiodiversityIndexData[]): Highcharts.Options => ({
-    chart: { type: 'line' },
-    title: { text: title },
+    chart: {
+        type: 'line',
+        backgroundColor: '#C8D2C3',
+    },
+    title: {
+        text: title,
+        style: { color: '#265F44', fontWeight: 'bold', fontSize: '18px' }
+    },
     xAxis: {
-        categories: data.map(d => d.year.toString())
+        categories: data.map(d => d.year.toString()),
+        labels: { style: { color: '#265F44' } },
+        lineColor: '#265F44',
+        tickColor: '#265F44',
     },
     yAxis: {
-        title: { text: 'Index Value' }
+        min: 0,
+        title: { text: '', style: { color: '#265F44' } },
+        labels: { style: { color: '#265F44' } },
+        gridLineColor: '#b7cbb7',
+    },
+    legend: {
+        enabled: false,
+        itemStyle: { color: '#265F44', fontWeight: 'bold' },
     },
     series: [{
         name: title,
         type: 'line',
-        data: data.map(d => d.value),
-        color: '#d9534f'
-    }]
+        data: data.map(d => ({ y: d.value, marker: { symbol: 'circle', fillColor: '#b91c1c', lineColor: '#b91c1c', lineWidth: 2, radius: 5 } })),
+        color: '#265F44',
+        marker: {
+            enabled: true,
+            fillColor: '#b91c1c',
+            lineColor: '#b91c1c',
+            lineWidth: 2,
+            radius: 5,
+        },
+        lineWidth: 2,
+        states: {
+            hover: {
+                lineWidth: 3
+            }
+        },
+        showInLegend: true,
+    }],
+    plotOptions: {
+        series: {
+            marker: {
+                enabled: true
+            }
+        }
+    },
+    credits: { enabled: false },
 });
 
 type SiteDetailPanelProps = {
@@ -108,8 +151,8 @@ export default function SiteDetailPanel({ site, onClose }: SiteDetailPanelProps)
     if (!site) return null;
 
     return (
-        <div className="absolute top-0 left-[70px] w-[500px] h-full bg-[#E3E7D7] z-40 shadow-2xl overflow-y-auto">
-            <div className="p-4 bg-[#20372a] text-white">
+        <div className="absolute top-0 left-[70px] w-[500px] h-full bg-[#e3e7c7] z-40 shadow-2xl overflow-y-auto">
+            <div className="p-4 bg-[#3A463D] text-white">
                 <button onClick={onClose} className="mb-2 text-sm">&larr; Back to Map</button>
                 <h2 className="text-xl font-bold">Site Information</h2>
                 <p className="text-xs text-white/80 mt-1">
@@ -117,7 +160,7 @@ export default function SiteDetailPanel({ site, onClose }: SiteDetailPanelProps)
                 </p>
             </div>
 
-            <div className="px-4 py-3 bg-[#e3e7d7]">
+            <div className="px-4 py-3 bg-[#c8d2c3]">
                 <h3 className="font-bold text-[15px] text-[#1c3b2e]">
                     {siteDetailData.ahp_name}
                 </h3>
@@ -126,7 +169,7 @@ export default function SiteDetailPanel({ site, onClose }: SiteDetailPanelProps)
                 </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-0 p-4">
+            <div className="grid grid-cols-2 gap-0 p-4 bg-[#c8d2c3]">
                 <div className="relative h-44 rounded-l-lg overflow-hidden">
                     <Image
                         src="/forest_p1.png"
@@ -147,7 +190,7 @@ export default function SiteDetailPanel({ site, onClose }: SiteDetailPanelProps)
                 </div>
             </div>
             
-            <div className="p-4 flex justify-between items-center bg-[#e3e7d7] border-b border-zinc-200">
+            <div className="p-4 flex justify-between items-center bg-[#c8d2c3]">
                 <div className="flex items-center gap-4">
                     <div className="flex items-center gap-2">
                             <Image
@@ -268,10 +311,10 @@ export default function SiteDetailPanel({ site, onClose }: SiteDetailPanelProps)
             </Section>
 
             <Section title="Biodiversity Index Analysis">
-                <div className="bg-white p-4 rounded-lg shadow mb-4">
+                <div className="p-4">
                     <HighchartsReact highcharts={Highcharts} options={biodiversityChartOptions('Annual Simpson Diversity Index', siteDetailData.biodiversity_index_analysis.simpson)} />
                 </div>
-                <div className="bg-white p-4 rounded-lg shadow">
+                <div className="p-4">
                     <HighchartsReact highcharts={Highcharts} options={biodiversityChartOptions('Annual Shannon Diversity Index', siteDetailData.biodiversity_index_analysis.shannon)} />
                 </div>
             </Section>

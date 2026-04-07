@@ -273,7 +273,7 @@ export default function MapEditor() {
 
           {isLegendExpanded && (
             <div className="w-[380px] bg-white shadow-2xl border-zinc-200 overflow-hidden rounded-l-xl rounded-br-xl animate-in fade-in slide-in-from-bottom-2 duration-200 flex flex-col">
-              <div className="bg-[#064e3b] px-5 py-3.5 flex items-center justify-between">
+              <div className="bg-[#3A463D] px-5 py-3.5 flex items-center justify-between">
                 <h3 className="font-bold text-sm text-white tracking-wide">Legend</h3>
                 
                 <button className="bg-[#059669] hover:bg-[#047857] text-white text-[10px] font-medium px-4 py-1.5 rounded-full transition-colors">
