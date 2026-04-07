@@ -11,7 +11,7 @@ import { get as getProjection } from 'ol/proj';
 import { getTopLeft, getWidth } from 'ol/extent';
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { ChevronUp, ChevronDown, Map as MapIcon, Layers, Info } from 'lucide-react';
+import { ChevronUp, ChevronDown, Map as MapIcon, Layers, Info, GripVertical, Eye, X } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
@@ -121,6 +121,12 @@ export default function MapEditor() {
   const activeTilesRef = useRef<Record<number, TileLayer<WMTS>>>({});
   const [legendData, setLegendData] = useState<Record<string, LegendResponse>>({});
   const [isLegendExpanded, setIsLegendExpanded] = useState(true);
+  const [legendOrder, setLegendOrder] = useState<number[]>([]);
+  const draggedLegendIdRef = useRef<number | null>(null);
+  const [draggingLegendId, setDraggingLegendId] = useState<number | null>(null);
+  const [hoveredInfoLayerId, setHoveredInfoLayerId] = useState<number | null>(null);
+  const [hoveredLegendInfoLayerId, setHoveredLegendInfoLayerId] = useState<number | null>(null);
+  const [layerVisibility, setLayerVisibility] = useState<Record<number, boolean>>({});
 
   useEffect(() => {
     if (!mapElement.current) return;
@@ -169,10 +175,14 @@ export default function MapEditor() {
       const isLoaded = activeTilesRef.current[config.id];
 
       if (isActive && !isLoaded) {
+        const orderIndex = legendOrder.indexOf(config.id);
+        const zBase = 10;
+        const z = orderIndex === -1 ? zBase : zBase + (legendOrder.length - orderIndex);
         const newLayer = new TileLayer({
           source: createWMTSSource(config),
           opacity: 0.8
         });
+        newLayer.setZIndex(z);
         mapRef.current?.addLayer(newLayer);
         activeTilesRef.current[config.id] = newLayer;
       } else if (!isActive && isLoaded) {
@@ -180,9 +190,116 @@ export default function MapEditor() {
         delete activeTilesRef.current[config.id];
       }
     });
+  }, [activeStatus, layerConfigs, legendOrder]);
+
+  useEffect(() => {
+    const activeIds = layerConfigs.filter(c => activeStatus[String(c.id)]).map(c => c.id);
+    const activeSet = new Set(activeIds);
+    setLayerVisibility((prev) => {
+      const next: Record<number, boolean> = {};
+      for (const id of activeIds) next[id] = prev[id] ?? true;
+      const prevKeys = Object.keys(prev).map(Number).filter(k => activeSet.has(k));
+      const sameLen = prevKeys.length === Object.keys(next).length;
+      const same = sameLen && prevKeys.every((k) => prev[k] === next[k]);
+      return same ? prev : next;
+    });
   }, [activeStatus, layerConfigs]);
 
+  useEffect(() => {
+    Object.entries(layerVisibility).forEach(([idStr, visible]) => {
+      const id = Number(idStr);
+      const layer = activeTilesRef.current[id];
+      if (layer) layer.setVisible(visible);
+    });
+  }, [layerVisibility]);
+
+  useEffect(() => {
+    if (!mapRef.current) return;
+    const zBase = 10;
+    const activeIds = new Set(Object.keys(activeStatus).filter(k => activeStatus[k]).map(Number));
+    const orderedActiveIds = legendOrder.filter((id) => activeIds.has(id));
+
+    orderedActiveIds.forEach((id, index) => {
+      const layer = activeTilesRef.current[id];
+      if (!layer) return;
+      const z = zBase + (orderedActiveIds.length - index);
+      layer.setZIndex(z);
+    });
+  }, [legendOrder, activeStatus]);
+
   const activeLayerConfigs = layerConfigs.filter(c => activeStatus[String(c.id)]);
+  const orderedActiveLayerConfigs = (() => {
+    if (legendOrder.length === 0) return activeLayerConfigs;
+    const byId = new globalThis.Map<number, LayerConfig>(activeLayerConfigs.map(c => [c.id, c] as const));
+    return legendOrder.map(id => byId.get(id)).filter(Boolean) as LayerConfig[];
+  })();
+
+  useEffect(() => {
+    const activeIds = activeLayerConfigs.map(c => c.id);
+    const activeIdSet = new Set(activeIds);
+
+    setLegendOrder((prev) => {
+      const kept = prev.filter((id) => activeIdSet.has(id));
+      const keptSet = new Set(kept);
+      const missing = activeIds.filter((id) => !keptSet.has(id));
+      const next = [...kept, ...missing];
+
+      if (next.length === prev.length && next.every((v, i) => v === prev[i])) {
+        return prev;
+      }
+      return next;
+    });
+  }, [activeStatus, layerConfigs]);
+
+  const handleLegendDragStart = (id: number) => (e: React.DragEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLElement;
+    if (target?.closest?.('[data-no-drag="true"]')) {
+      e.preventDefault();
+      return;
+    }
+    draggedLegendIdRef.current = id;
+    setDraggingLegendId(id);
+    document.body.style.cursor = 'grabbing';
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', String(id));
+  };
+
+  const handleLegendDragEnd = () => {
+    draggedLegendIdRef.current = null;
+    setDraggingLegendId(null);
+    document.body.style.cursor = '';
+  };
+
+  const handleLegendDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleLegendDrop = (targetId: number) => (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const fromRaw = draggedLegendIdRef.current ?? Number(e.dataTransfer.getData('text/plain'));
+    const fromId = Number.isFinite(fromRaw) ? Number(fromRaw) : null;
+    if (!fromId || fromId === targetId) return;
+    setLegendOrder((prev) => {
+      const next = prev.slice();
+      const fromIdx = next.indexOf(fromId);
+      const toIdx = next.indexOf(targetId);
+      if (fromIdx === -1 || toIdx === -1) return prev;
+      next.splice(fromIdx, 1);
+      next.splice(toIdx, 0, fromId);
+      return next;
+    });
+    draggedLegendIdRef.current = null;
+  };
+
+  const toggleLegendVisibility = (id: number) => {
+    setLayerVisibility((prev) => ({ ...prev, [id]: !(prev[id] ?? true) }));
+  };
+
+  const deactivateLayer = (id: number) => {
+    setActiveStatus((prev) => ({ ...prev, [String(id)]: false }));
+    setHoveredLegendInfoLayerId((prev) => (prev === id ? null : prev));
+  };
   const pathname = usePathname();
 
   return (
@@ -251,7 +368,18 @@ export default function MapEditor() {
                     {layer.short_description || "Lorem ipsum dolor sit amet"}
                   </p>
                 </div>
-                <Info size={16} className="text-[#062c21]/40 shrink-0" />
+                <div
+                  className="relative shrink-0"
+                  onMouseEnter={() => setHoveredInfoLayerId(layer.id)}
+                  onMouseLeave={() => setHoveredInfoLayerId((prev) => (prev === layer.id ? null : prev))}
+                >
+                  <Info size={16} className="text-[#062c21]/40" />
+                  {hoveredInfoLayerId === layer.id && (
+                    <div className="pointer-events-none absolute right-0 top-full mt-2 w-[260px] rounded-lg border border-zinc-200 bg-white p-3 text-[11px] text-zinc-700 shadow-xl z-50">
+                      {layer.description || 'No description available.'}
+                    </div>
+                  )}
+                </div>
               </div>
             ))}
           </div>
@@ -296,18 +424,68 @@ export default function MapEditor() {
                 ) : (
                   <div className="p-6 max-h-[350px] overflow-y-auto custom-scrollbar">
                     <div className="space-y-6">
-                      {activeLayerConfigs.map((config) => {
+                      {orderedActiveLayerConfigs.map((config, index) => {
                         const currentLegend = legendData[config.layers];
                         const rules = currentLegend?.Legend?.[0]?.rules || [];
 
                         return (
-                          <div key={config.id} className="animate-in fade-in duration-300">
-                            <h4 className="text-[11px] font-bold text-zinc-800 mb-3 flex items-center gap-2 uppercase tracking-tight">
-                              <span className="w-1.5 h-1.5 bg-[#059669] rounded-full"></span>
-                              {config.name}
-                            </h4>
+                          <div
+                            key={config.id}
+                            className={`relative rounded-xl border border-zinc-200 bg-white p-4 animate-in fade-in duration-300 ${index === 0 ? '' : '-mt-6'} ${draggingLegendId === config.id ? 'shadow-2xl opacity-70 cursor-grabbing' : 'shadow-sm cursor-grab'}`}
+                            style={{ zIndex: 50 - index }}
+                            draggable
+                            onDragStart={handleLegendDragStart(config.id)}
+                            onDragEnd={handleLegendDragEnd}
+                            onDragOverCapture={handleLegendDragOver}
+                            onDropCapture={handleLegendDrop(config.id)}
+                          >
+                            <div className="flex justify-between gap-3 mb-3">
+                              <h4 className="text-[11px] font-bold text-zinc-800 flex items-center gap-2 uppercase tracking-tight min-w-0">
+                                <GripVertical size={14} className="text-zinc-400 shrink-0" />
+                                <span className="truncate">{config.name}</span>
+                              </h4>
+
+                              <div className="flex items-center gap-2 shrink-0" data-no-drag="true">
+                                <button
+                                  type="button"
+                                  onClick={() => toggleLegendVisibility(config.id)}
+                                  className="p-1"
+                                  aria-label="Toggle visibility"
+                                  data-no-drag="true"
+                                >
+                                  <Eye
+                                    size={16}
+                                    className={(layerVisibility[config.id] ?? true) ? 'text-zinc-700' : 'text-zinc-700/30'}
+                                  />
+                                </button>
+
+                                <div
+                                  className="relative"
+                                  onMouseEnter={() => setHoveredLegendInfoLayerId(config.id)}
+                                  onMouseLeave={() => setHoveredLegendInfoLayerId((prev) => (prev === config.id ? null : prev))}
+                                  data-no-drag="true"
+                                >
+                                  <Info size={16} className="text-zinc-700/60" />
+                                  {hoveredLegendInfoLayerId === config.id && (
+                                    <div className="pointer-events-none absolute right-0 top-full mt-2 w-[260px] rounded-lg border border-zinc-200 bg-white p-3 text-[11px] text-zinc-700 shadow-xl z-50">
+                                      {config.description || 'No description available.'}
+                                    </div>
+                                  )}
+                                </div>
+
+                                <button
+                                  type="button"
+                                  onClick={() => deactivateLayer(config.id)}
+                                  className="p-1"
+                                  aria-label="Disable layer"
+                                  data-no-drag="true"
+                                >
+                                  <X size={16} className="text-zinc-700/60 hover:text-zinc-900" />
+                                </button>
+                              </div>
+                            </div>
                             
-                            <div className="space-y-2.5 pl-4 border-l border-zinc-100 ml-0.5">
+                            <div className="space-y-2.5">
                               {rules.map((rule: LegendRule, idx: number) => {
                                 const symbolizer = rule.symbolizers[0];
                                 const colormapEntries = symbolizer?.Raster?.colormap?.entries;

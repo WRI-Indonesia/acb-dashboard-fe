@@ -86,6 +86,7 @@ export default function SiteInformation() {
   const pathname = usePathname();
   const [isLegendExpanded, setIsLegendExpanded] = useState(true);
   const [selectedSite, setSelectedSite] = useState<SiteDetailData | null>(null);
+  const detailAbortRef = useRef<AbortController | null>(null);
   const [hoverData, setHoverData] = useState<HoverData | null>(null);
   const [pointerPos, setPointerPos] = useState({ x: 0, y: 0 });
 
@@ -121,12 +122,41 @@ export default function SiteInformation() {
 
     map.on('click', (e) => {
       const feature = map.forEachFeatureAtPixel(e.pixel, (f) => f);
-      if (feature) {
-        const properties = feature.getProperties();
-        setSelectedSite(properties as unknown as SiteDetailData);
-      } else {
+      if (!feature) {
+        detailAbortRef.current?.abort();
+        detailAbortRef.current = null;
         setSelectedSite(null);
+        return;
       }
+
+      const properties = feature.getProperties() as { id?: string | number; name?: string; area?: number };
+      const siteId = properties.id;
+      if (siteId == null) return;
+
+      setSelectedSite({
+        country: null,
+        ahp_name: properties.name ?? null,
+        area_ha: typeof properties.area === 'number' ? properties.area : null,
+        class_description: null,
+        deforestation: null,
+        carbon_emission: null,
+        biodiversity_index_analysis: null,
+      });
+
+      detailAbortRef.current?.abort();
+      const controller = new AbortController();
+      detailAbortRef.current = controller;
+
+      fetch(`${API_BASE_URL}/api/v1/geos/polygon/${siteId}`, { signal: controller.signal })
+        .then((res) => res.json())
+        .then((json: { message?: string; data?: SiteDetailData }) => {
+          if (!json?.data) return;
+          setSelectedSite(json.data);
+        })
+        .catch((err) => {
+          if (err?.name === 'AbortError') return;
+          console.error('Error fetch site detail:', err);
+        });
     });
 
     map.on('pointermove', (e) => {
