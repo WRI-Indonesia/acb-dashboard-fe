@@ -79,7 +79,7 @@ const chartOptions: Highcharts.Options = {
     series: [{
         showInLegend: false,
         type: 'column',
-        data: siteDetailData.deforestation.graph_data.slice(0, 10).map(v => v * 100),
+        data: siteDetailData.deforestation.graph_data.slice(0, 10).map(v => Number((v * 100).toFixed(2))),
         color: '#d9534f',
         borderWidth: 0
     }]
@@ -113,7 +113,7 @@ const biodiversityChartOptions = (title: string, data: BiodiversityIndexData[]):
     series: [{
         name: title,
         type: 'line',
-        data: data.map(d => ({ y: d.value, marker: { symbol: 'circle', fillColor: '#b91c1c', lineColor: '#b91c1c', lineWidth: 2, radius: 5 } })),
+        data: data.map(d => ({ y: Number(d.value.toFixed(2)), marker: { symbol: 'circle', fillColor: '#b91c1c', lineColor: '#b91c1c', lineWidth: 2, radius: 5 } })),
         color: '#265F44',
         marker: {
             enabled: true,
@@ -203,21 +203,21 @@ export default function SiteDetailPanel({ site, onClose }: SiteDetailPanelProps)
             <div className="p-4 flex justify-between items-center bg-[#c8d2c3]">
                 <div className="flex items-center gap-4">
                     <div className="flex items-center gap-2">
-                            <Image
-                                src="/icon_hectare.png"
-                                width={18}
-                                height={18}
-                                alt="Hectare icon"
-                            />
-                        <span className="text-[#265f44]">{Number(resolvedSite.area_ha).toLocaleString()} ha</span>
+                        <Image
+                            src="/icon_hectare.png"
+                            width={18}
+                            height={18}
+                            alt="Hectare icon"
+                        />
+                        <span className="text-[#265f44]">{Number(Number(resolvedSite.area_ha).toFixed(2)).toLocaleString()} ha</span>
                     </div>
                     <div className="flex items-center gap-2">
-                            <Image
-                                src="/icon_restoration.png"
-                                width={18}
-                                height={18}
-                                alt="Restoration icon"
-                            />
+                        <Image
+                            src="/icon_restoration.png"
+                            width={18}
+                            height={18}
+                            alt="Restoration icon"
+                        />
                         <span className="font-semibold text-[#265f44]">{resolvedSite.class_description}</span>
                     </div>
                 </div>
@@ -230,7 +230,10 @@ export default function SiteDetailPanel({ site, onClose }: SiteDetailPanelProps)
                     <HighchartsReact highcharts={Highcharts} options={chartOptions} />
                     <div className="mt-4 grid grid-cols-5 gap-4 items-start">
                         <div className="col-span-2">
-                            <p className="text-2xl font-bold text-[#265F44]">74.2 ha/year</p>
+                            {/* Example: show annual value rounded if available */}
+                            <p className="text-2xl font-bold text-[#265F44]">
+                                {resolvedSite.deforestation.annual ? Number(Number(resolvedSite.deforestation.annual).toFixed(2)).toLocaleString() : '-'} ha/year
+                            </p>
                         </div>
                         <div className="col-span-3">
                             <p className="text-[11px] leading-relaxed text-[#5a6b5f]">
@@ -247,7 +250,7 @@ export default function SiteDetailPanel({ site, onClose }: SiteDetailPanelProps)
             </Section>
 
             <Section title="Carbon Emission">
-                <div className="p-4">
+                <div>
                     <div className="flex items-center justify-between bg-[#1f5b3f] rounded-lg p-1">
                         {[10, 15, 20].map(year => (
                             <button
@@ -271,7 +274,10 @@ export default function SiteDetailPanel({ site, onClose }: SiteDetailPanelProps)
                                 <div className="mt-2 grid grid-cols-4 gap-3 items-start">
                                     <div className="col-span-2">
                                         <p className="text-2xl font-bold text-[#265F44]">
-                                            {Number(resolvedSite.carbon_emission.potential_avoided.find(p => p.project_duration === activeTab)?.total_co2eq).toLocaleString()} ton
+                                            {(() => {
+                                                const val = resolvedSite.carbon_emission.potential_avoided.find(p => p.project_duration === activeTab)?.total_co2eq;
+                                                return val !== undefined ? Number(val.toFixed(2)).toLocaleString() : '-';
+                                            })()} ton
                                         </p>
                                         <p className="text-[11px] text-[#5a6b5f]">of Carbon emission can be avoided</p>
                                     </div>
@@ -300,7 +306,10 @@ export default function SiteDetailPanel({ site, onClose }: SiteDetailPanelProps)
                         <div className="mt-2 grid grid-cols-5 gap-3 items-start px-3">
                             <div className="col-span-2">
                                 <p className="text-2xl font-bold text-[#265F44]">
-                                    {Number(resolvedSite.carbon_emission.potential_sequestered.find(p => p.project_duration === activeTab)?.total_co2eq).toLocaleString()} ton
+                                    {(() => {
+                                        const val = resolvedSite.carbon_emission.potential_sequestered.find(p => p.project_duration === activeTab)?.total_co2eq;
+                                        return val !== undefined ? Number(val.toFixed(2)).toLocaleString() : '-';
+                                    })()} ton
                                 </p>
                                 <p className="text-[11px] text-[#5a6b5f]">of CO2eq potentially accumulated</p>
                             </div>
@@ -324,10 +333,10 @@ export default function SiteDetailPanel({ site, onClose }: SiteDetailPanelProps)
             </Section>
 
             <Section title="Biodiversity Index Analysis">
-                <div className="p-4">
+                <div>
                     <HighchartsReact highcharts={Highcharts} options={biodiversityChartOptions('Annual Simpson Diversity Index', resolvedSite.biodiversity_index_analysis.simpson)} />
                 </div>
-                <div className="p-4">
+                <div>
                     <HighchartsReact highcharts={Highcharts} options={biodiversityChartOptions('Annual Shannon Diversity Index', resolvedSite.biodiversity_index_analysis.shannon)} />
                 </div>
             </Section>
