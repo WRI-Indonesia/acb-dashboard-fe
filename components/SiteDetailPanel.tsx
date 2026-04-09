@@ -64,25 +64,31 @@ const Section: React.FC<{ title: string; children: React.ReactNode }> = ({ title
     );
 };
 
-const chartOptions: Highcharts.Options = {
-    chart: { type: 'column', backgroundColor: '#c8d2c3' },
-    title: { text: '' },
-    xAxis: {
-        categories: ['2011', '2012', '2013', '2014', '2015', '2016', '2017', '2018', '2019', '2020'],
-        crosshair: true
-    },
-    yAxis: {
-        min: 0,
+const getDeforestationChartOptions = (graphData?: number[]): Highcharts.Options => {
+    const data = Array.isArray(graphData) ? graphData.slice(-10) : [];
+    const n = data.length;
+    const currentYear = new Date().getFullYear();
+    const startYear = currentYear - n + 1;
+    const categories = data.map((_, i) => String(startYear + i));
+
+    return {
+        chart: { type: 'column', backgroundColor: '#c8d2c3' },
         title: { text: '' },
-        labels: { format: '{value}%' },
-    },
-    series: [{
-        showInLegend: false,
-        type: 'column',
-        data: siteDetailData.deforestation.graph_data.slice(0, 10).map(v => Number((v * 100).toFixed(2))),
-        color: '#d9534f',
-        borderWidth: 0
-    }]
+        xAxis: { categories, crosshair: true },
+        yAxis: {
+            min: 0,
+            title: { text: '' },
+            labels: { format: '{value}%' },
+        },
+        series: [{
+            showInLegend: false,
+            type: 'column',
+            data: data.map(v => Number((Number(v) * 100).toFixed(2))),
+            color: '#d9534f',
+            borderWidth: 0
+        }],
+        credits: { enabled: false }
+    };
 };
 
 const biodiversityChartOptions = (title: string, data: BiodiversityIndexData[]): Highcharts.Options => ({
@@ -227,7 +233,7 @@ export default function SiteDetailPanel({ site, onClose }: SiteDetailPanelProps)
             <Section title="Deforestation">
                 <div className="bg-[#c8d2c3] p-4 rounded-lg shadow">
                     <h4 className="font-semibold mb-2 text-[#265F44]">Deforestation in this project area in the past 10 years</h4>
-                    <HighchartsReact highcharts={Highcharts} options={chartOptions} />
+                    <HighchartsReact highcharts={Highcharts} options={getDeforestationChartOptions(resolvedSite.deforestation?.graph_data)} />
                     <div className="mt-4 grid grid-cols-5 gap-4 items-start">
                         <div className="col-span-2">
                             {/* Example: show annual value rounded if available */}
