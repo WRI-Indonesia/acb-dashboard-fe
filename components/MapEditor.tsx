@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from 'react';
+import html2canvas from 'html2canvas';
 import { Map, View } from 'ol';
 import TileLayer from 'ol/layer/Tile';
 import OSM from 'ol/source/OSM';
@@ -11,7 +12,7 @@ import { get as getProjection } from 'ol/proj';
 import { getTopLeft, getWidth } from 'ol/extent';
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { ChevronUp, ChevronDown, Map as MapIcon, Layers, Info, GripVertical, Eye, X } from 'lucide-react';
+import { ChevronUp, ChevronDown, Map as MapIcon, Layers, Info, GripVertical, Eye, X, Droplet } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
@@ -50,10 +51,11 @@ type WMTSTileImage = {
 type LegendEntry = {
   color: string;
   label?: string;
+  quantity?: string;
 };
 
 type LegendSymbolizer = {
-  Raster?: { colormap?: { entries?: LegendEntry[] } };
+  Raster?: { colormap?: { entries?: LegendEntry[], type?: string } };
   Polygon?: { fill?: string };
   Line?: { stroke?: string };
 };
@@ -91,6 +93,7 @@ const createWMTSSource = (config: LayerConfig) => {
   });
 
   return new WMTS({
+    crossOrigin: 'anonymous',
     url: `${API_BASE_URL}/api/v1/proxy/wmts`,
     layer: config.layers,
     matrixSet: config.matrix_set || "WebMercatorQuad",
@@ -107,6 +110,7 @@ const createWMTSSource = (config: LayerConfig) => {
       const y = tileCoord[2];
 
       const proxyUrl = `${API_BASE_URL}/api/v1/proxy/wmts?layer=${config.layers}&tilematrix=${z}&tilecol=${x}&tilerow=${y}`;
+      tile.getImage().crossOrigin = 'anonymous';
       tile.getImage().src = proxyUrl;
     }
   });
@@ -127,6 +131,19 @@ export default function MapEditor() {
   const [hoveredInfoLayerId, setHoveredInfoLayerId] = useState<number | null>(null);
   const [hoveredLegendInfoLayerId, setHoveredLegendInfoLayerId] = useState<number | null>(null);
   const [layerVisibility, setLayerVisibility] = useState<Record<number, boolean>>({});
+  const [layerOpacity, setLayerOpacity] = useState<Record<number, number>>({});
+  const [showOpacitySlider, setShowOpacitySlider] = useState<Record<number, boolean>>({});
+
+  const isFutureDefLayer = (config: LayerConfig) => {
+    if (!config) return false;
+    const layerId = String(config.layers || '').toLowerCase();
+    const name = String(config.name || '').toLowerCase();
+    return (
+      layerId === 'future_defrisk' ||
+      layerId.includes('future_def') ||
+      (name.includes('future') && name.includes('deforest'))
+    );
+  };
 
   useEffect(() => {
     if (!mapElement.current) return;
@@ -134,7 +151,7 @@ export default function MapEditor() {
     const map = new Map({
       target: mapElement.current,
       layers: [
-        new TileLayer({ source: new OSM() })
+          new TileLayer({ source: new OSM({ crossOrigin: 'anonymous' }) })
       ],
       view: new View({
         center: [13139395, -209819], 
@@ -178,9 +195,10 @@ export default function MapEditor() {
         const orderIndex = legendOrder.indexOf(config.id);
         const zBase = 10;
         const z = orderIndex === -1 ? zBase : zBase + (legendOrder.length - orderIndex);
+        const opacity = layerOpacity[config.id] ?? 0.8;
         const newLayer = new TileLayer({
           source: createWMTSSource(config),
-          opacity: 0.8
+          opacity
         });
         newLayer.setZIndex(z);
         mapRef.current?.addLayer(newLayer);
@@ -190,7 +208,18 @@ export default function MapEditor() {
         delete activeTilesRef.current[config.id];
       }
     });
-  }, [activeStatus, layerConfigs, legendOrder]);
+  }, [activeStatus, layerConfigs, legendOrder, layerOpacity]);
+
+  // Update opacity when changed
+  useEffect(() => {
+    Object.entries(layerOpacity).forEach(([idStr, opacity]) => {
+      const id = Number(idStr);
+      const layer = activeTilesRef.current[id];
+      if (layer && typeof opacity === 'number') {
+        layer.setOpacity(opacity);
+      }
+    });
+  }, [layerOpacity]);
 
   useEffect(() => {
     const activeIds = layerConfigs.filter(c => activeStatus[String(c.id)]).map(c => c.id);
@@ -302,6 +331,200 @@ export default function MapEditor() {
   };
   const pathname = usePathname();
 
+  const handleExportMapAsImage = async () => {
+    const mapArea = mapElement.current;
+    if (!mapArea || !mapRef.current) return;
+
+    // Get Canvas from OpenLayers
+    const mapCanvas = mapRef.current.getViewport().querySelector('canvas');
+    if (!mapCanvas) {
+      alert('Map canvas not found.');
+      return;
+    }
+
+    const width = mapArea.offsetWidth;
+    const height = mapArea.offsetHeight;
+
+    const legendExportDiv = document.createElement('div');
+    legendExportDiv.style.position = 'absolute';
+    legendExportDiv.style.left = '-99999px';
+    legendExportDiv.style.top = '0';
+    legendExportDiv.style.background = '#fff';
+    legendExportDiv.style.borderRadius = '0';
+    legendExportDiv.style.boxShadow = 'none';
+    legendExportDiv.style.padding = '24px';
+    legendExportDiv.style.display = 'inline-block';
+    legendExportDiv.style.fontFamily = 'inherit';
+    legendExportDiv.style.color = '#222';
+    legendExportDiv.style.maxWidth = '520px';
+    legendExportDiv.style.minWidth = 'unset';
+    legendExportDiv.style.width = 'fit-content';
+    legendExportDiv.style.fontSize = '14px';
+
+    const legendList = orderedActiveLayerConfigs.length === 0 ? layerConfigs : orderedActiveLayerConfigs;
+    const estimateLegendRows = (config: LayerConfig) => {
+      const legend = legendData[config.layers];
+      const rules = legend?.Legend?.[0]?.rules || [];
+      let rows = 1;
+
+      for (const rule of rules) {
+        const symbolizer = rule.symbolizers[0];
+        const entries = symbolizer?.Raster?.colormap?.entries;
+        if (entries && entries.length > 0) {
+          rows += entries.length;
+        } else {
+          rows += 1;
+        }
+      }
+
+      return rows;
+    };
+
+    const totalRows = legendList.reduce((sum, config) => sum + estimateLegendRows(config), 0);
+    const columnCount = totalRows > 36 ? 3 : totalRows > 18 ? 2 : 1;
+    const legendMaxWidth = columnCount === 1 ? 520 : columnCount === 2 ? 760 : 980;
+    legendExportDiv.style.maxWidth = `${legendMaxWidth}px`;
+    legendExportDiv.style.width = 'fit-content';
+
+    const columns: LayerConfig[][] = Array.from({ length: columnCount }, () => []);
+    const columnHeights = new Array(columnCount).fill(0);
+
+    legendList.forEach((config) => {
+      const rows = estimateLegendRows(config);
+      let targetCol = 0;
+      for (let i = 1; i < columnCount; i += 1) {
+        if (columnHeights[i] < columnHeights[targetCol]) targetCol = i;
+      }
+      columns[targetCol].push(config);
+      columnHeights[targetCol] += rows;
+    });
+
+    legendExportDiv.innerHTML = `
+      <div style="display:flex;gap:32px;align-items:flex-start;width:fit-content;">
+        ${columns.map((column) => `
+          <div style="display:flex;flex-direction:column;gap:24px;min-width:200px;">
+            ${column.map((config) => {
+          const legend = legendData[config.layers];
+          const rules = legend?.Legend?.[0]?.rules || [];
+          return `
+            <div>
+              <div style=\"font-weight:bold;font-size:15px;margin-bottom:10px;\">${config.name}</div>
+              <div style=\"display:flex;flex-direction:column;gap:7px;\">
+                ${rules.map((rule: LegendRule) => {
+                        const symbolizer = rule.symbolizers[0];
+                        const colormapEntries = symbolizer?.Raster?.colormap?.entries;
+                        const colormapType = symbolizer?.Raster?.colormap?.type;
+                        const labeledCount = colormapEntries ? colormapEntries.filter((e: any) => e.label && String(e.label).trim() !== '').length : 0;
+                        const isRamp = colormapEntries && colormapEntries.length > 2 && colormapEntries.every((e: any) => e.color) && (colormapType === 'ramp' || labeledCount >= 2) && isFutureDefLayer(config);
+
+                        if (isRamp) {
+                          const boxH = 120;
+                          const quantities = colormapEntries.map((e: any) => Number(e.quantity));
+                          const hasQuant = quantities.every((q: number) => !isNaN(q));
+                          let stopsStr: string;
+                          if (hasQuant) {
+                            const min = quantities[0];
+                            const max = quantities[quantities.length - 1];
+                            stopsStr = colormapEntries.map((e: any, i: number) => {
+                              const q = Number(e.quantity);
+                              const pct = max > min ? ((q - min) / (max - min)) * 100 : (i / (colormapEntries.length - 1)) * 100;
+                              return `${e.color} ${pct}%`;
+                            }).join(', ');
+                          } else {
+                            stopsStr = colormapEntries.map((e: any) => e.color).join(', ');
+                          }
+                          const gradient = `linear-gradient(to bottom, ${stopsStr})`;
+                          const topLabel = colormapEntries[0].label || colormapEntries[0].quantity || '';
+                          const bottomLabel = colormapEntries[colormapEntries.length - 1].label || colormapEntries[colormapEntries.length - 1].quantity || '';
+                          const middleLabelEntry = colormapEntries.slice(1, -1).find((e: any) => e.label && String(e.label).trim() !== '');
+                          const middleLabel = middleLabelEntry ? middleLabelEntry.label : '';
+
+                          return `
+                            <div style="display:flex;align-items:flex-start;gap:12px;justify-content:flex-start;">
+                              <div style="width:16px;height:${boxH}px;border:1px solid #ccc;border-radius:6px;overflow:hidden;background:${gradient};"></div>
+                              <div style="display:flex;flex-direction:column;justify-content:space-between;height:${boxH}px;min-width:60px;font-size:12px;color:#333;">
+                                <span>${topLabel}</span>
+                                ${middleLabel ? `<span style=\"text-align:center;\">${middleLabel}</span>` : '<span />'}
+                                <span>${bottomLabel}</span>
+                              </div>
+                            </div>
+                          `;
+                        } else if (colormapEntries) {
+                          return `
+                            <div style="margin-top: 4px; background: transparent;">
+                              ${colormapEntries.map((entry: any) => `
+                                <div style="margin-bottom: 6px; white-space: nowrap; height: 16px; display: block; background: transparent;">
+                                  <span style="display: inline-block; width: 14px; height: 14px; border-radius: 50%; background: ${entry.color}; border: 1px solid rgba(0,0,0,0.1); vertical-align: middle;"></span>
+                                  <span style="display: inline-block; vertical-align: middle; padding-left: 10px; font-size: 12px; color: #333; line-height: 14px; font-family: sans-serif;">${entry.label || ''}</span>
+                                </div>
+                              `).join('')}
+                            </div>
+                          `;
+                        }
+                        const vectorColor = symbolizer?.Polygon?.fill || symbolizer?.Line?.stroke || "#ccc";
+                        return `
+                          <div style="margin-bottom: 6px; white-space: nowrap; height: 16px; display: block; background: transparent;">
+                            <span style="display: inline-block; width: 14px; height: 14px; border-radius: 50%; background: ${vectorColor}; border: 1px solid rgba(0,0,0,0.1); vertical-align: middle;"></span>
+                            <span style="display: inline-block; vertical-align: middle; padding-left: 10px; font-size: 12px; color: #333; line-height: 14px; font-family: sans-serif;">${rule.title || rule.name || ''}</span>
+                          </div>
+                        `;
+                }).join('')}
+              </div>
+            </div>
+          `;
+            }).join('')}
+          </div>
+        `).join('')}
+      </div>
+    `;
+
+    document.body.appendChild(legendExportDiv);
+
+    // Render legend
+    const legendCanvas = await html2canvas(legendExportDiv, {
+      backgroundColor: null,
+      useCORS: true,
+      logging: false,
+      scale: 1,
+      width: legendExportDiv.offsetWidth,
+      height: legendExportDiv.offsetHeight,
+    });
+    const legendW = legendExportDiv.offsetWidth;
+    const legendH = legendExportDiv.offsetHeight;
+
+    document.body.removeChild(legendExportDiv);
+
+    // Merge map and legend
+    const exportCanvas = document.createElement('canvas');
+    exportCanvas.width = width;
+    exportCanvas.height = height;
+    const ctx = exportCanvas.getContext('2d');
+    if (!ctx) return;
+
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, width, height);
+    ctx.drawImage(
+      mapCanvas,
+      0, 0, mapCanvas.width, mapCanvas.height,
+      0, 0, width, height
+    );
+
+    const legendX = Math.max(width - legendW - 24, 24);
+    const legendY = Math.max(height - legendH - 24, 24);
+    ctx.drawImage(legendCanvas, legendX, legendY, legendW, legendH);
+
+    // Download
+    exportCanvas.toBlob((blob) => {
+      if (!blob) return;
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'map-export.png';
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }, 'image/png');
+  };
+
   return (
     <div className="relative w-full h-screen bg-white flex overflow-hidden font-sans">
       
@@ -336,7 +559,7 @@ export default function MapEditor() {
       </div>
 
       {/* LAYER PANEL (ABSOLUTE) */}
-      <div className="absolute left-[70px] top-0 w-[310px] bg-[#20372A] flex flex-col h-fit max-h-screen z-20 shadow-2xl rounded-br-2xl">
+      <div className="absolute left-[70px] top-0 w-[310px] bg-[#20372A] flex flex-col h-fit max-h-screen z-20 rounded-br-2xl">
         <div className="p-3 pt-[48px] pr-[20px] pb-[24px] pl-[20px] shrink-0">
           <h1 className="text-xl font-medium text-white tracking-tight leading-tight">
             Data Spatial Layer
@@ -399,16 +622,21 @@ export default function MapEditor() {
             {isLegendExpanded ? <ChevronDown size={20} /> : <ChevronUp size={20} />}
           </button>
 
-          {isLegendExpanded && (
-            <div className="w-[380px] bg-white shadow-2xl border-zinc-200 overflow-hidden rounded-l-xl rounded-br-xl animate-in fade-in slide-in-from-bottom-2 duration-200 flex flex-col">
-              <div className="bg-[#3A463D] px-5 py-3.5 flex items-center justify-between">
-                <h3 className="font-bold text-sm text-white tracking-wide">Legend</h3>
-                
-                <button className="bg-[#059669] hover:bg-[#047857] text-white text-[10px] font-medium px-4 py-1.5 rounded-full transition-colors">
-                  Export area as Image
-                </button>
-              </div>
+          <div className="w-[344px]">
+            <div className="bg-[#3A463D] flex items-center justify-between h-[70px] px-[16px] py-[20px] rounded-tl-xl shadow-2xl">
+              <h3 className="text-[18px] font-semibold text-white tracking-wide">Legend</h3>
+              <button
+                className="bg-[#059669] hover:bg-[#047857] text-white text-[10px] px-[18px] py-[10px] rounded-full transition-colors w-[155px] h-[30px] text-[14px] font-semibold flex items-center justify-center"
+                onClick={handleExportMapAsImage}
+                type="button"
+              >
+                Export as Image
+              </button>
+            </div>
+          </div>
 
+          {isLegendExpanded && (
+            <div className="w-[344px] bg-white shadow-2xl border-zinc-200 overflow-hidden rounded-br-xl animate-in fade-in slide-in-from-bottom-2 duration-200 flex flex-col">
               <div className="bg-white">
                 {activeLayerConfigs.length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-[90px]">
@@ -433,7 +661,7 @@ export default function MapEditor() {
                             key={config.id}
                             className={`relative rounded-xl border border-zinc-200 bg-white p-4 animate-in fade-in duration-300 ${index === 0 ? '' : '-mt-6'} ${draggingLegendId === config.id ? 'shadow-2xl opacity-70 cursor-grabbing' : 'shadow-sm cursor-grab'}`}
                             style={{ zIndex: 50 - index }}
-                            draggable
+                            draggable={!showOpacitySlider[config.id]}
                             onDragStart={handleLegendDragStart(config.id)}
                             onDragEnd={handleLegendDragEnd}
                             onDragOverCapture={handleLegendDragOver}
@@ -446,6 +674,33 @@ export default function MapEditor() {
                               </h4>
 
                               <div className="flex items-center gap-2 shrink-0" data-no-drag="true">
+                                <div className="relative" data-no-drag="true">
+                                  <button
+                                    type="button"
+                                    className="p-1"
+                                    aria-label="Layer opacity"
+                                    onClick={() => setShowOpacitySlider(prev => ({ ...prev, [config.id]: !prev[config.id] }))}
+                                  >
+                                    <Droplet size={16} className="text-zinc-700/60 hover:text-[#059669]" />
+                                  </button>
+                                  {showOpacitySlider[config.id] && (
+                                    <div className="absolute right-0 top-full mt-2 z-50 bg-white border border-zinc-200 rounded-lg shadow-xl px-4 py-3 flex flex-col items-center min-w-[160px]" style={{ minWidth: 160 }}>
+                                      <input
+                                        type="range"
+                                        min={0.1}
+                                        max={1}
+                                        step={0.01}
+                                        value={layerOpacity[config.id] ?? 0.8}
+                                        onChange={e => {
+                                          const val = parseFloat(e.target.value);
+                                          setLayerOpacity(prev => ({ ...prev, [config.id]: val }));
+                                        }}
+                                        className="w-full accent-[#059669]"
+                                      />
+                                      <span className="text-[11px] text-zinc-700 mt-1">{((layerOpacity[config.id] ?? 0.8) * 100).toFixed(0)}%</span>
+                                    </div>
+                                  )}
+                                </div>
                                 <button
                                   type="button"
                                   onClick={() => toggleLegendVisibility(config.id)}
@@ -485,11 +740,49 @@ export default function MapEditor() {
                               </div>
                             </div>
                             
-                            <div className="space-y-2.5">
+                           <div className="space-y-2.5">
                               {rules.map((rule: LegendRule, idx: number) => {
                                 const symbolizer = rule.symbolizers[0];
                                 const colormapEntries = symbolizer?.Raster?.colormap?.entries;
-                                
+                                const colormapType = symbolizer?.Raster?.colormap?.type;
+                                const isRamp = colormapEntries && colormapEntries.length > 2 && colormapEntries.every((e: any) => e.color) && (colormapType === 'ramp' || colormapEntries.some((e: any) => e.label && String(e.label).trim() !== '')) && isFutureDefLayer(config);
+
+                                if (isRamp) {
+                                  const heightPx = 120;
+                                  const quantities = colormapEntries.map((e: any) => Number(e.quantity));
+                                  const hasQuant = quantities.every((q: number) => !isNaN(q));
+                                  let gradient: string;
+                                  if (hasQuant) {
+                                    const min = quantities[0];
+                                    const max = quantities[quantities.length - 1];
+                                    const stops = colormapEntries.map((e: any, i: number) => {
+                                      const q = Number(e.quantity);
+                                      const pct = max > min ? ((q - min) / (max - min)) * 100 : (i / (colormapEntries.length - 1)) * 100;
+                                      return `${e.color} ${pct}%`;
+                                    }).join(', ');
+                                    gradient = `linear-gradient(to bottom, ${stops})`;
+                                  } else {
+                                    gradient = `linear-gradient(to bottom, ${colormapEntries.map((e: any) => e.color).join(',')})`;
+                                  }
+
+                                  const topLabel = colormapEntries[0].label || colormapEntries[0].quantity || '';
+                                  const bottomLabel = colormapEntries[colormapEntries.length - 1].label || colormapEntries[colormapEntries.length - 1].quantity || '';
+                                  const middleLabelEntry = colormapEntries.slice(1, -1).find((e: any) => e.label && String(e.label).trim() !== '');
+                                  const middleLabel = middleLabelEntry ? middleLabelEntry.label : '';
+
+                                  return (
+                                    <div key={idx} className="flex items-start gap-3 w-full">
+                                      <div className="w-4" style={{ height: heightPx, background: gradient, borderColor: '#e5e7eb' }} />
+
+                                      <div className="flex flex-col justify-between" style={{ height: heightPx }}>
+                                        <span className="text-[11px] text-zinc-600 font-medium" style={{ minWidth: 56 }}>{topLabel}</span>
+                                        {middleLabel ? <span className="text-[11px] text-zinc-600 font-medium" style={{ minWidth: 56 }}>{middleLabel}</span> : <span />}
+                                        <span className="text-[11px] text-zinc-600 font-medium" style={{ minWidth: 56 }}>{bottomLabel}</span>
+                                      </div>
+                                    </div>
+                                  );
+                                }
+
                                 if (colormapEntries) {
                                   return colormapEntries.map((entry: LegendEntry, eIdx: number) => (
                                     <div key={`${idx}-${eIdx}`} className="flex items-center gap-3 group cursor-default">
