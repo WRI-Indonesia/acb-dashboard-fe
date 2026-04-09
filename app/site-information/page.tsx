@@ -390,36 +390,36 @@ export default function SiteInformation() {
           {isLegendExpanded ? <ChevronDown size={20} /> : <ChevronUp size={20} />}
         </button>
 
-        {isLegendExpanded && (
-          <div className="w-[380px] bg-white shadow-2xl overflow-hidden rounded-l-xl rounded-br-xl animate-in fade-in slide-in-from-bottom-2 duration-200 flex flex-col">
-            
-            <div className="bg-[#3A463D] px-5 py-3.5 flex items-center justify-between">
-              <h3 className="font-bold text-sm text-white tracking-wide">Legend</h3>
-              
+          <div className="w-[344px]">
+            <div className="bg-[#3A463D] flex items-center justify-between h-[70px] px-[16px] py-[20px] rounded-tl-xl shadow-2xl">
+              <h3 className="text-[18px] font-semibold text-white tracking-wide">Legend</h3>
               <button
-                className="bg-[#059669] hover:bg-[#047857] text-white text-[10px] font-medium px-4 py-1.5 rounded-full transition-colors"
+                className="bg-[#059669] hover:bg-[#047857] text-white text-[10px] px-[18px] py-[10px] rounded-full transition-colors w-[155px] h-[30px] text-[14px] font-semibold flex items-center justify-center"
                 onClick={handleExportMapAsImage}
                 type="button"
               >
-                Export area as Image
+                Export as Image
               </button>
             </div>
 
-            <div className="bg-white">
-              <div className="flex flex-col items-center justify-center h-[90px]">
-                <p className="text-zinc-400 text-[13px] mb-2 font-medium">No layers data is selected</p>
-                <div className="flex items-center gap-3 text-[#064e3b] font-bold">
-                  <svg width="24" height="16" viewBox="0 0 28 20" fill="none">
-                      <rect x="0.5" y="4.5" width="23" height="11" rx="5.5" fill="white" stroke="#064E3B"/>
-                      <circle cx="7" cy="10" r="3.5" fill="#064E3B"/>
-                  </svg>
-                  <span className="text-[14px]">Activate your layers filter first</span>
+          {isLegendExpanded && (
+            <div className="w-[344px] bg-white shadow-2xl border-zinc-200 overflow-hidden rounded-br-xl animate-in fade-in slide-in-from-bottom-2 duration-200 flex flex-col">
+              <div className="bg-white">
+                <div className="flex flex-col items-center justify-center h-[90px]">
+                  <p className="text-zinc-400 text-[13px] mb-2 font-medium">No layers data is selected</p>
+                  <div className="flex items-center gap-3 text-[#064e3b] font-bold">
+                    <svg width="24" height="16" viewBox="0 0 28 20" fill="none">
+                        <rect x="0.5" y="4.5" width="23" height="11" rx="5.5" fill="white" stroke="#064E3B"/>
+                        <circle cx="7" cy="10" r="3.5" fill="#064E3B"/>
+                    </svg>
+                    <span className="text-[14px]">Activate your layers filter first</span>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
       </div>
     </div>
+  </div>
   );
 }
