@@ -272,7 +272,7 @@ export default function SiteInformation() {
       link.download = 'map-export.png';
       link.click();
     } catch (err) {
-      alert('Export failed. Please try again.');
+      alert('Failed to export map as image. Please try again. Error: ' + err);
     } finally {
       document.body.removeChild(wrapper);
     }

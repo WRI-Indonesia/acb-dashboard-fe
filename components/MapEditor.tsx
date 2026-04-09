@@ -414,29 +414,29 @@ export default function MapEditor() {
                         const symbolizer = rule.symbolizers[0];
                         const colormapEntries = symbolizer?.Raster?.colormap?.entries;
                         const colormapType = symbolizer?.Raster?.colormap?.type;
-                        const labeledCount = colormapEntries ? colormapEntries.filter((e: any) => e.label && String(e.label).trim() !== '').length : 0;
-                        const isRamp = colormapEntries && colormapEntries.length > 2 && colormapEntries.every((e: any) => e.color) && (colormapType === 'ramp' || labeledCount >= 2) && isFutureDefLayer(config);
+                        const labeledCount = colormapEntries ? colormapEntries.filter((e: LegendEntry) => e.label && String(e.label).trim() !== '').length : 0;
+                        const isRamp = colormapEntries && colormapEntries.length > 2 && colormapEntries.every((e: LegendEntry) => e.color) && (colormapType === 'ramp' || labeledCount >= 2) && isFutureDefLayer(config);
 
                         if (isRamp) {
                           const boxH = 120;
-                          const quantities = colormapEntries.map((e: any) => Number(e.quantity));
+                          const quantities = colormapEntries.map((e: LegendEntry) => Number(e.quantity));
                           const hasQuant = quantities.every((q: number) => !isNaN(q));
                           let stopsStr: string;
                           if (hasQuant) {
                             const min = quantities[0];
                             const max = quantities[quantities.length - 1];
-                            stopsStr = colormapEntries.map((e: any, i: number) => {
+                            stopsStr = colormapEntries.map((e: LegendEntry, i: number) => {
                               const q = Number(e.quantity);
                               const pct = max > min ? ((q - min) / (max - min)) * 100 : (i / (colormapEntries.length - 1)) * 100;
                               return `${e.color} ${pct}%`;
                             }).join(', ');
                           } else {
-                            stopsStr = colormapEntries.map((e: any) => e.color).join(', ');
+                            stopsStr = colormapEntries.map((e: LegendEntry) => e.color).join(', ');
                           }
                           const gradient = `linear-gradient(to bottom, ${stopsStr})`;
                           const topLabel = colormapEntries[0].label || colormapEntries[0].quantity || '';
                           const bottomLabel = colormapEntries[colormapEntries.length - 1].label || colormapEntries[colormapEntries.length - 1].quantity || '';
-                          const middleLabelEntry = colormapEntries.slice(1, -1).find((e: any) => e.label && String(e.label).trim() !== '');
+                          const middleLabelEntry = colormapEntries.slice(1, -1).find((e: LegendEntry) => e.label && String(e.label).trim() !== '');
                           const middleLabel = middleLabelEntry ? middleLabelEntry.label : '';
 
                           return `
@@ -452,12 +452,12 @@ export default function MapEditor() {
                         } else if (colormapEntries) {
                           return `
                             <div style="margin-top: 4px; background: transparent;">
-                              ${colormapEntries.map((entry: any) => `
-                                <div style="margin-bottom: 6px; white-space: nowrap; height: 16px; display: block; background: transparent;">
-                                  <span style="display: inline-block; width: 14px; height: 14px; border-radius: 50%; background: ${entry.color}; border: 1px solid rgba(0,0,0,0.1); vertical-align: middle;"></span>
-                                  <span style="display: inline-block; vertical-align: middle; padding-left: 10px; font-size: 12px; color: #333; line-height: 14px; font-family: sans-serif;">${entry.label || ''}</span>
-                                </div>
-                              `).join('')}
+                              ${colormapEntries.map((entry: LegendEntry) => `
+                                    <div style="margin-bottom: 6px; white-space: nowrap; height: 16px; display: block; background: transparent;">
+                                      <span style="display: inline-block; width: 14px; height: 14px; border-radius: 50%; background: ${entry.color}; border: 1px solid rgba(0,0,0,0.1); vertical-align: middle;"></span>
+                                      <span style="display: inline-block; vertical-align: middle; padding-left: 10px; font-size: 12px; color: #333; line-height: 14px; font-family: sans-serif;">${entry.label || ''}</span>
+                                    </div>
+                                  `).join('')}
                             </div>
                           `;
                         }
@@ -745,29 +745,29 @@ export default function MapEditor() {
                                 const symbolizer = rule.symbolizers[0];
                                 const colormapEntries = symbolizer?.Raster?.colormap?.entries;
                                 const colormapType = symbolizer?.Raster?.colormap?.type;
-                                const isRamp = colormapEntries && colormapEntries.length > 2 && colormapEntries.every((e: any) => e.color) && (colormapType === 'ramp' || colormapEntries.some((e: any) => e.label && String(e.label).trim() !== '')) && isFutureDefLayer(config);
+                                const isRamp = colormapEntries && colormapEntries.length > 2 && colormapEntries.every((e: LegendEntry) => e.color) && (colormapType === 'ramp' || colormapEntries.some((e: LegendEntry) => e.label && String(e.label).trim() !== '')) && isFutureDefLayer(config);
 
                                 if (isRamp) {
                                   const heightPx = 120;
-                                  const quantities = colormapEntries.map((e: any) => Number(e.quantity));
+                                  const quantities = colormapEntries.map((e: LegendEntry) => Number(e.quantity));
                                   const hasQuant = quantities.every((q: number) => !isNaN(q));
                                   let gradient: string;
                                   if (hasQuant) {
                                     const min = quantities[0];
                                     const max = quantities[quantities.length - 1];
-                                    const stops = colormapEntries.map((e: any, i: number) => {
+                                    const stops = colormapEntries.map((e: LegendEntry, i: number) => {
                                       const q = Number(e.quantity);
                                       const pct = max > min ? ((q - min) / (max - min)) * 100 : (i / (colormapEntries.length - 1)) * 100;
                                       return `${e.color} ${pct}%`;
                                     }).join(', ');
                                     gradient = `linear-gradient(to bottom, ${stops})`;
                                   } else {
-                                    gradient = `linear-gradient(to bottom, ${colormapEntries.map((e: any) => e.color).join(',')})`;
+                                    gradient = `linear-gradient(to bottom, ${colormapEntries.map((e: LegendEntry) => e.color).join(',')})`;
                                   }
 
                                   const topLabel = colormapEntries[0].label || colormapEntries[0].quantity || '';
                                   const bottomLabel = colormapEntries[colormapEntries.length - 1].label || colormapEntries[colormapEntries.length - 1].quantity || '';
-                                  const middleLabelEntry = colormapEntries.slice(1, -1).find((e: any) => e.label && String(e.label).trim() !== '');
+                                  const middleLabelEntry = colormapEntries.slice(1, -1).find((e: LegendEntry) => e.label && String(e.label).trim() !== '');
                                   const middleLabel = middleLabelEntry ? middleLabelEntry.label : '';
 
                                   return (
