@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from 'react';
+import html2canvas from 'html2canvas';
 import { Map, View } from 'ol';
 import TileLayer from 'ol/layer/Tile';
 import OSM from 'ol/source/OSM';
@@ -222,6 +223,61 @@ export default function SiteInformation() {
     }
   }, [geoData]);
 
+  // Fungsi untuk export area peta dan legend sebagai gambar
+  const handleExportMapAsImage = async () => {
+    const mapArea = mapElement.current;
+    const legendArea = document.querySelector('.absolute.bottom-6.right-6');
+    if (!mapArea) return;
+
+    // Buat wrapper sementara untuk gabungkan map dan legend
+    const wrapper = document.createElement('div');
+    wrapper.style.position = 'absolute';
+    wrapper.style.left = '-99999px';
+    wrapper.style.top = '0';
+    wrapper.style.width = mapArea.offsetWidth + 'px';
+    wrapper.style.height = mapArea.offsetHeight + 'px';
+    wrapper.style.background = 'white';
+
+    // Clone map
+    const mapClone = mapArea.cloneNode(true) as HTMLElement;
+    mapClone.style.position = 'relative';
+    mapClone.style.zIndex = '1';
+    wrapper.appendChild(mapClone);
+
+    // Clone legend jika ada dan sedang tampil
+    if (legendArea && isLegendExpanded) {
+      const legendClone = legendArea.cloneNode(true) as HTMLElement;
+      legendClone.style.position = 'absolute';
+      legendClone.style.right = '24px';
+      legendClone.style.bottom = '24px';
+      legendClone.style.zIndex = '10';
+      wrapper.appendChild(legendClone);
+    }
+
+    document.body.appendChild(wrapper);
+
+    try {
+      const canvas = await html2canvas(wrapper, {
+        useCORS: true,
+        backgroundColor: '#fff',
+        logging: false,
+        width: mapArea.offsetWidth,
+        height: mapArea.offsetHeight,
+        windowWidth: document.body.scrollWidth,
+        windowHeight: document.body.scrollHeight,
+      });
+      const url = canvas.toDataURL('image/png');
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'map-export.png';
+      link.click();
+    } catch (err) {
+      alert('Export failed. Please try again.');
+    } finally {
+      document.body.removeChild(wrapper);
+    }
+  };
+
   return (
     <div className="relative w-full h-screen bg-white flex overflow-hidden font-sans">
       {selectedSite && (
@@ -340,7 +396,11 @@ export default function SiteInformation() {
             <div className="bg-[#3A463D] px-5 py-3.5 flex items-center justify-between">
               <h3 className="font-bold text-sm text-white tracking-wide">Legend</h3>
               
-              <button className="bg-[#059669] hover:bg-[#047857] text-white text-[10px] font-medium px-4 py-1.5 rounded-full transition-colors">
+              <button
+                className="bg-[#059669] hover:bg-[#047857] text-white text-[10px] font-medium px-4 py-1.5 rounded-full transition-colors"
+                onClick={handleExportMapAsImage}
+                type="button"
+              >
                 Export area as Image
               </button>
             </div>
