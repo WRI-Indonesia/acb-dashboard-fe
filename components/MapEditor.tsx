@@ -700,7 +700,7 @@ export default function MapEditor() {
       </div>
 
       {/* LAYER PANEL (ABSOLUTE) */}
-      <div className="absolute left-[70px] top-0 w-[310px] bg-[#20372A] flex flex-col h-fit max-h-screen z-20 rounded-br-2xl">
+      <div className="absolute left-[70px] top-0 w-[310px] bg-[#20372A] flex flex-col h-auto max-h-screen [@media(max-height:840px)]:max-h-[60vh] [@media(max-height:840px)]:min-h-[300px] z-20 rounded-br-2xl">
         <div className="p-3 pt-[48px] pr-[20px] pb-[24px] pl-[20px] shrink-0">
           <h1 className="text-xl font-medium text-white tracking-tight leading-tight">
             Data Spatial Layer
@@ -711,7 +711,7 @@ export default function MapEditor() {
         </div>
 
         <div className="bg-[#d9e5db] shadow-inner overflow-hidden rounded-br-2xl min-h-0">
-          <div className="overflow-y-auto px-1 py-3 space-y-0.5 custom-scrollbar-light max-h-[calc(100vh-120px)]">
+          <div className="overflow-y-auto px-1 py-3 space-y-0.5 custom-scrollbar-light">
             {layerConfigs.map((layer) => (
               <div 
                 key={layer.id} 
@@ -774,7 +774,6 @@ export default function MapEditor() {
       
       <div className="w-full h-px bg-zinc-100 mb-4" />
 
-      {/* Content dengan Scrollbar */}
       <div className="flex-1 overflow-y-auto pr-1 custom-scrollbar-detail text-[#062c21]">
         <div className="space-y-4">
           <p className="text-[12px] leading-relaxed opacity-80 w-[255px]">
