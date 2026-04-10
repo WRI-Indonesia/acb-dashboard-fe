@@ -294,7 +294,7 @@ export default function MapEditor() {
           .catch((err) => console.error("Error fetching legend:", err));
       }
     });
-  }, [activeStatus, layerConfigs]);
+  }, [activeStatus, layerConfigs, legendData]);
 
   useEffect(() => {
     if (!mapRef.current || layerConfigs.length === 0) return;
@@ -389,7 +389,7 @@ export default function MapEditor() {
       }
       return next;
     });
-  }, [activeStatus, layerConfigs]);
+  }, [activeStatus, layerConfigs, activeLayerConfigs]);
 
   const handleLegendDragStart = (id: number) => (e: React.DragEvent<HTMLDivElement>) => {
     const target = e.target as HTMLElement;

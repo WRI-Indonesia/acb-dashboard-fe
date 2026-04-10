@@ -151,7 +151,7 @@ type SiteDetailPanelProps = {
     onClose: () => void;
 }
 
-export default function SiteDetailPanel({ site, onClose }: SiteDetailPanelProps) {
+export default function SiteDetailPanel({ site }: SiteDetailPanelProps) {
     const [activeTab, setActiveTab] = useState(10);
 
     if (!site) return null;
