@@ -143,7 +143,7 @@ export default function MapEditor() {
     const viewportW = window.innerWidth;
     const viewportH = window.innerHeight;
     const panelHeight = Math.min(420, Math.floor(viewportH * 0.5));
-    const offsetY = 450;
+    const offsetY = Math.min(panelHeight * 0.6, 240);
 
     let left = rect.right + 12;
     if (left + panelWidth > viewportW - padding) {
