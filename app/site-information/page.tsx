@@ -32,6 +32,7 @@ type HoverData = {
   name: string;
   area: number;
   id?: string | number;
+  country: string;
 }
 
 type Position = number[];
@@ -77,6 +78,7 @@ type GeoDataItem = {
   ahpsiteid: string | number;
   off_area: number;
   geometry: GeoJSONGeometry;
+  iso3: string;
 }
 
 export default function SiteInformation() {
@@ -134,16 +136,6 @@ export default function SiteInformation() {
       const siteId = properties.id;
       if (siteId == null) return;
 
-      setSelectedSite({
-        country: null,
-        ahp_name: properties.name ?? null,
-        area_ha: typeof properties.area === 'number' ? properties.area : null,
-        class_description: null,
-        deforestation: null,
-        carbon_emission: null,
-        biodiversity_index_analysis: null,
-      });
-
       detailAbortRef.current?.abort();
       const controller = new AbortController();
       detailAbortRef.current = controller;
@@ -169,7 +161,8 @@ export default function SiteInformation() {
         setHoverData({
           name: properties.name,
           area: properties.area,
-          id: properties.id
+          id: properties.id,
+          country: properties.country
         });
         setPointerPos({ x: e.pixel[0], y: e.pixel[1] });
         
@@ -195,7 +188,8 @@ export default function SiteInformation() {
             properties: {
               name: item.ahpname,
               id: item.ahpsiteid,
-              area: item.off_area
+              area: item.off_area,
+              country: item.iso3
             }
           }))
         };
@@ -352,9 +346,9 @@ export default function SiteInformation() {
         </div>
       </div>
 
-      {hoverData && !selectedSite && (
+      {hoverData && (
         <div 
-          className="absolute z-50 pointer-events-none bg-white rounded-xl shadow-2xl border border-zinc-100 w-[280px] animate-in fade-in zoom-in duration-200 overflow-hidden"
+          className="absolute z-50 pointer-events-none bg-white rounded-xl shadow-2xl w-[280px] animate-in fade-in zoom-in duration-200 overflow-hidden"
           style={{ 
             left: pointerPos.x + 85, 
             top: pointerPos.y + 15 
@@ -374,7 +368,7 @@ export default function SiteInformation() {
               </h4>
               <div className="flex items-center justify-between mt-2">
                 <div className="flex items-center gap-1.5">
-                  <span className="text-[11px] font-semibold text-white/80">Sulawesi, Indonesia</span>
+                  <span className="text-[11px] font-semibold text-white/80">{hoverData.country}</span>
                 </div>
                 <div className="flex items-baseline gap-1">
                   <span className="text-[13px] font-bold">

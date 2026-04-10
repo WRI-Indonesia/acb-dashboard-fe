@@ -181,7 +181,7 @@ export default function SiteDetailPanel({ site, onClose }: SiteDetailPanelProps)
                     {resolvedSite.ahp_name}
                 </h3>
                 <div className="flex items-center gap-2 text-[12px] text-[#2f5b47] mt-1">
-                    <span>Lampung, Sumatra, Indonesia</span>
+                    <span>{resolvedSite.country ?? 'Country: -'}</span>
                 </div>
             </div>
 
