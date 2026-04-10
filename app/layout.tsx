@@ -18,10 +18,9 @@ export const metadata: Metadata = {
   title: "ASEAN Centre for Biodiversity Dashboard",
   description:
     "Access the ASEAN Centre for Biodiversity interactive map to explore real-time data on ecosystems, species distribution, and protected areas across the region",
-};
-
-export const icons = {
-  icon: '/bsf_logo.png',
+  icons: {
+    icon: "/bsf_logo.png",
+  },
 };
 
 export default function RootLayout({
