@@ -112,7 +112,7 @@ export default function SiteInformation() {
     const map = new Map({
       target: mapElement.current,
       layers: [
-        new TileLayer({ source: new OSM() }),
+        new TileLayer({ source: new OSM({ crossOrigin: 'anonymous' }) }),
         vectorLayer
       ],
       view: new View({
@@ -223,59 +223,66 @@ export default function SiteInformation() {
     }
   }, [geoData]);
 
-  // Fungsi untuk export area peta dan legend sebagai gambar
   const handleExportMapAsImage = async () => {
     const mapArea = mapElement.current;
-    const legendArea = document.querySelector('.absolute.bottom-6.right-6');
-    if (!mapArea) return;
+    const map = mapRef.current;
+    if (!mapArea || !map) return;
 
-    // Buat wrapper sementara untuk gabungkan map dan legend
-    const wrapper = document.createElement('div');
-    wrapper.style.position = 'absolute';
-    wrapper.style.left = '-99999px';
-    wrapper.style.top = '0';
-    wrapper.style.width = mapArea.offsetWidth + 'px';
-    wrapper.style.height = mapArea.offsetHeight + 'px';
-    wrapper.style.background = 'white';
+    const width = mapArea.offsetWidth;
+    const height = mapArea.offsetHeight;
 
-    // Clone map
-    const mapClone = mapArea.cloneNode(true) as HTMLElement;
-    mapClone.style.position = 'relative';
-    mapClone.style.zIndex = '1';
-    wrapper.appendChild(mapClone);
+    const exportCanvas = document.createElement('canvas');
+    exportCanvas.width = width;
+    exportCanvas.height = height;
+    const ctx = exportCanvas.getContext('2d');
+    if (!ctx) return;
 
-    // Clone legend jika ada dan sedang tampil
-    if (legendArea && isLegendExpanded) {
-      const legendClone = legendArea.cloneNode(true) as HTMLElement;
-      legendClone.style.position = 'absolute';
-      legendClone.style.right = '24px';
-      legendClone.style.bottom = '24px';
-      legendClone.style.zIndex = '10';
-      wrapper.appendChild(legendClone);
-    }
+    await new Promise<void>((resolve) => {
+      map.once('rendercomplete', () => {
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(0, 0, width, height);
 
-    document.body.appendChild(wrapper);
+        const canvases = map
+          .getViewport()
+          .querySelectorAll<HTMLCanvasElement>('.ol-layer canvas, canvas');
 
-    try {
-      const canvas = await html2canvas(wrapper, {
-        useCORS: true,
-        backgroundColor: '#fff',
-        logging: false,
-        width: mapArea.offsetWidth,
-        height: mapArea.offsetHeight,
-        windowWidth: document.body.scrollWidth,
-        windowHeight: document.body.scrollHeight,
+        canvases.forEach((canvas) => {
+          if (!canvas.width || !canvas.height) return;
+          const opacity = canvas.style.opacity ? Number(canvas.style.opacity) : 1;
+          if (opacity === 0) return;
+
+          const transform = canvas.style.transform || '';
+          const matrix = transform
+            .match(/^matrix\((.+)\)$/)?.[1]
+            .split(',')
+            .map(Number);
+
+          ctx.save();
+          ctx.globalAlpha = opacity;
+          if (matrix && matrix.length === 6) {
+            ctx.setTransform(matrix[0], matrix[1], matrix[2], matrix[3], matrix[4], matrix[5]);
+          } else {
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+          }
+          ctx.drawImage(canvas, 0, 0);
+          ctx.restore();
+        });
+
+        resolve();
       });
-      const url = canvas.toDataURL('image/png');
+
+      map.renderSync();
+    });
+
+    exportCanvas.toBlob((blob) => {
+      if (!blob) return;
+      const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
       link.download = 'map-export.png';
       link.click();
-    } catch (err) {
-      alert('Failed to export map as image. Please try again. Error: ' + err);
-    } finally {
-      document.body.removeChild(wrapper);
-    }
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }, 'image/png');
   };
 
   return (
