@@ -12,7 +12,7 @@ import { get as getProjection } from 'ol/proj';
 import { getTopLeft, getWidth } from 'ol/extent';
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { ChevronUp, ChevronDown, Map as MapIcon, Layers, Info, GripVertical, Eye, X, Droplet } from 'lucide-react';
+import { ChevronUp, ChevronDown, Map as MapIcon, Layers, GripVertical, Eye, X, Droplet } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
@@ -119,6 +119,7 @@ const createWMTSSource = (config: LayerConfig) => {
 export default function MapEditor() {
   const mapElement = useRef<HTMLDivElement>(null);
   const mapRef = useRef<Map | null>(null);
+  const infoPanelRef = useRef<HTMLDivElement>(null);
   
   const [layerConfigs, setLayerConfigs] = useState<LayerConfig[]>([]);
   const [activeStatus, setActiveStatus] = useState<Record<string, boolean>>({});
@@ -128,11 +129,55 @@ export default function MapEditor() {
   const [legendOrder, setLegendOrder] = useState<number[]>([]);
   const draggedLegendIdRef = useRef<number | null>(null);
   const [draggingLegendId, setDraggingLegendId] = useState<number | null>(null);
-  const [hoveredInfoLayerId, setHoveredInfoLayerId] = useState<number | null>(null);
-  const [hoveredLegendInfoLayerId, setHoveredLegendInfoLayerId] = useState<number | null>(null);
+  const [selectedInfoLayer, setSelectedInfoLayer] = useState<LayerConfig | null>(null);
+  const [infoPanelTop, setInfoPanelTop] = useState<number>(0);
+  
   const [layerVisibility, setLayerVisibility] = useState<Record<number, boolean>>({});
   const [layerOpacity, setLayerOpacity] = useState<Record<number, number>>({});
   const [showOpacitySlider, setShowOpacitySlider] = useState<Record<number, boolean>>({});
+  const [infoPanelLeft, setInfoPanelLeft] = useState<number>(0);
+
+  const openInfoPanel = (rect: DOMRect, layer: LayerConfig) => {
+    const panelWidth = 300;
+    const padding = 12;
+    const viewportW = window.innerWidth;
+    const viewportH = window.innerHeight;
+    const panelHeight = Math.min(420, Math.floor(viewportH * 0.5));
+    const offsetY = 450;
+
+    let left = rect.right + 12;
+    if (left + panelWidth > viewportW - padding) {
+      left = rect.left - panelWidth - 12;
+    }
+    if (left < padding) left = padding;
+
+    let top = rect.top - offsetY;
+    if (top + panelHeight > viewportH - padding) {
+      top = viewportH - panelHeight - padding;
+    }
+    if (top < padding) top = padding;
+
+    setInfoPanelTop(top);
+    setInfoPanelLeft(left);
+    setSelectedInfoLayer(layer);
+  };
+
+  useEffect(() => {
+    if (!selectedInfoLayer) return;
+
+    const handleOutsideClick = (event: MouseEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (!target) return;
+
+      if (infoPanelRef.current?.contains(target)) return;
+      if (target.closest('[data-info-trigger="true"]')) return;
+
+      setSelectedInfoLayer(null);
+    };
+
+    document.addEventListener('click', handleOutsideClick);
+    return () => document.removeEventListener('click', handleOutsideClick);
+  }, [selectedInfoLayer]);
 
   const isFutureDefLayer = (config: LayerConfig) => {
     if (!config) return false;
@@ -210,7 +255,6 @@ export default function MapEditor() {
     });
   }, [activeStatus, layerConfigs, legendOrder, layerOpacity]);
 
-  // Update opacity when changed
   useEffect(() => {
     Object.entries(layerOpacity).forEach(([idStr, opacity]) => {
       const id = Number(idStr);
@@ -327,7 +371,6 @@ export default function MapEditor() {
 
   const deactivateLayer = (id: number) => {
     setActiveStatus((prev) => ({ ...prev, [String(id)]: false }));
-    setHoveredLegendInfoLayerId((prev) => (prev === id ? null : prev));
   };
   const pathname = usePathname();
 
@@ -582,32 +625,83 @@ export default function MapEditor() {
                   className="data-[state=checked]:bg-[#20372A] data-[state=unchecked]:bg-[#ffffff]/60 shrink-0"
                 />
                 <div className="flex flex-col flex-1 min-w-0 pr-2">
-                  <Label 
-                    className="text-[13px] font-bold leading-tight cursor-pointer text-[#062c21] truncate block w-full"
-                  >
+                  <Label className="text-[13px] font-bold leading-tight cursor-pointer text-[#062c21] truncate block w-full">
                     {layer.name}
                   </Label>
                   <p className="text-[10px] mt-1 text-[#062c21]/80 truncate w-full">
-                    {layer.short_description || "Lorem ipsum dolor sit amet"}
+                    {layer.short_description}
                   </p>
                 </div>
-                <div
-                  className="relative shrink-0"
-                  onMouseEnter={() => setHoveredInfoLayerId(layer.id)}
-                  onMouseLeave={() => setHoveredInfoLayerId((prev) => (prev === layer.id ? null : prev))}
-                >
-                  <Info size={16} className="text-[#062c21]/40" />
-                  {hoveredInfoLayerId === layer.id && (
-                    <div className="pointer-events-none absolute right-0 top-full mt-2 w-[260px] rounded-lg border border-zinc-200 bg-white p-3 text-[11px] text-zinc-700 shadow-xl z-50">
-                      {layer.description || 'No description available.'}
-                    </div>
-                  )}
-                </div>
+              <button
+                type="button"
+                className="shrink-0 p-1 hover:bg-white/10 rounded-full transition-colors"
+                data-info-trigger="true"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (selectedInfoLayer?.id === layer.id) {
+                    setSelectedInfoLayer(null);
+                    return;
+                  }
+                  openInfoPanel(e.currentTarget.getBoundingClientRect(), layer);
+                }}
+              >
+                  <Image src="/info.svg" alt="Info" width={20} height={20} className={selectedInfoLayer?.id === layer.id ? "text-white" : "text-[#062c21]/40"} />
+              </button>
               </div>
             ))}
           </div>
         </div>
+        
       </div>
+
+{selectedInfoLayer && (
+  <div 
+    className="absolute w-[300px] max-h-[50vh] bg-white z-[100] border border-black flex flex-col rounded-lg animate-in fade-in zoom-in-95 duration-200"
+    style={{ 
+      top: `${infoPanelTop}px`,
+      left: `${infoPanelLeft}px`
+    }}
+    ref={infoPanelRef}
+  >
+    <div className="p-4 flex flex-col w-full max-h-[50vh] p-3 overflow-hidden">
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <Image src="/info.svg" alt="Info" width={20} height={20} className="text-zinc-500" />
+          <h2 className="text-[1rem] font-bold text-[#062c21]">Detail Information</h2>
+        </div>
+        <button onClick={() => setSelectedInfoLayer(null)} className="p-1 hover:bg-zinc-100 rounded-full">
+          <X size={16} className="text-zinc-400" />
+        </button>
+      </div>
+      
+      <div className="w-full h-px bg-zinc-100 mb-4" />
+
+      {/* Content dengan Scrollbar */}
+      <div className="flex-1 overflow-y-auto pr-1 custom-scrollbar-detail text-[#062c21]">
+        <div className="space-y-4">
+          <p className="text-[12px] leading-relaxed opacity-80 w-[255px]">
+            {selectedInfoLayer.description}
+          </p>
+
+          <div className="grid gap-3">
+             <div>
+               <span className="text-[11px] font-bold uppercase opacity-50 block">Date of Content</span>
+               <span className="text-[12px]">{selectedInfoLayer.content_date || '-'}</span>
+             </div>
+             <div>
+               <span className="text-[11px] font-bold uppercase opacity-50 block">Spatial Resolution</span>
+               <span className="text-[12px]">{selectedInfoLayer.spatial_resolution || '-'}</span>
+             </div>
+             <div>
+               <span className="text-[11px] font-bold uppercase opacity-50 block">Source</span>
+               <span className="text-[12px] font-medium">{selectedInfoLayer.source || '-'}</span>
+             </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
 
       {/* MAP AREA */}
       <div ref={mapElement} className="flex-1 h-full relative z-10">
@@ -714,18 +808,29 @@ export default function MapEditor() {
                                   />
                                 </button>
 
-                                <div
-                                  className="relative"
-                                  onMouseEnter={() => setHoveredLegendInfoLayerId(config.id)}
-                                  onMouseLeave={() => setHoveredLegendInfoLayerId((prev) => (prev === config.id ? null : prev))}
-                                  data-no-drag="true"
-                                >
-                                  <Info size={16} className="text-zinc-700/60" />
-                                  {hoveredLegendInfoLayerId === config.id && (
-                                    <div className="pointer-events-none absolute right-0 top-full mt-2 w-[260px] rounded-lg border border-zinc-200 bg-white p-3 text-[11px] text-zinc-700 shadow-xl z-50">
-                                      {config.description || 'No description available.'}
-                                    </div>
-                                  )}
+                                <div className="relative" data-no-drag="true">
+                                  <button
+                                    type="button"
+                                    className="p-1"
+                                    data-info-trigger="true"
+                                    aria-label="Layer description"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      if (selectedInfoLayer?.id === config.id) {
+                                        setSelectedInfoLayer(null);
+                                        return;
+                                      }
+                                      openInfoPanel(e.currentTarget.getBoundingClientRect(), config);
+                                    }}
+                                  >
+                                    <Image
+                                      src="/info.svg"
+                                      alt="Info"
+                                      width={20}
+                                      height={20}
+                                      className="text-zinc-700/60"
+                                    />
+                                  </button>
                                 </div>
 
                                 <button
@@ -814,14 +919,14 @@ export default function MapEditor() {
       </div>
 
       <style jsx global>{`
-        .custom-scrollbar-green::-webkit-scrollbar {
+        .custom-scrollbar-detail::-webkit-scrollbar {
           width: 4px;
         }
-        .custom-scrollbar-green::-webkit-scrollbar-track {
+        .custom-scrollbar-detail::-webkit-scrollbar-track {
           background: transparent;
         }
-        .custom-scrollbar-green::-webkit-scrollbar-thumb {
-          background: rgba(255, 255, 255, 0.1);
+        .custom-scrollbar-detail::-webkit-scrollbar-thumb {
+          background: #e2e8f0;
           border-radius: 10px;
         }
       `}</style>
