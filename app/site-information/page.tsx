@@ -5,11 +5,13 @@ import html2canvas from 'html2canvas';
 import { Map, View } from 'ol';
 import TileLayer from 'ol/layer/Tile';
 import OSM from 'ol/source/OSM';
+import XYZ from 'ol/source/XYZ';
 import VectorLayer from 'ol/layer/Vector';
 import VectorSource from 'ol/source/Vector';
 import GeoJSON from 'ol/format/GeoJSON';
 import Image from 'next/image';
 import { Style, Stroke, Fill } from 'ol/style';
+import { ScaleLine } from 'ol/control';
 import { ChevronDown, ChevronUp, Layers, Map as MapIcon } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -17,6 +19,8 @@ import SiteDetailPanel from '@/components/SiteDetailPanel';
 import type { SiteDetailData } from '../../types/site';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
+
+type BaseMapType = 'normal' | 'satellite' | 'hybrid';
 
 const polygonStyle = new Style({
   stroke: new Stroke({
@@ -85,6 +89,7 @@ export default function SiteInformation() {
   const mapElement = useRef<HTMLDivElement>(null);
   const mapRef = useRef<Map | null>(null);
   const vectorSourceRef = useRef<VectorSource | null>(null);
+  const scaleLineRef = useRef<HTMLDivElement>(null);
   const [geoData, setGeoData] = useState<GeoDataItem[] | null>(null);
   const pathname = usePathname();
   const [isLegendExpanded, setIsLegendExpanded] = useState(true);
@@ -92,6 +97,13 @@ export default function SiteInformation() {
   const detailAbortRef = useRef<AbortController | null>(null);
   const [hoverData, setHoverData] = useState<HoverData | null>(null);
   const [pointerPos, setPointerPos] = useState({ x: 0, y: 0 });
+  const [baseMapType, setBaseMapType] = useState<BaseMapType>('normal');
+  const [showBaseMapMenu, setShowBaseMapMenu] = useState(false);
+  const baseLayersRef = useRef<{
+    normal: TileLayer<OSM> | null;
+    satellite: TileLayer<XYZ> | null;
+    hybridLabels: TileLayer<XYZ> | null;
+  }>({ normal: null, satellite: null, hybridLabels: null });
 
   useEffect(() => {
     fetch(`${API_BASE_URL}/api/v1/geos/polygon`)
@@ -111,10 +123,36 @@ export default function SiteInformation() {
       style: polygonStyle
     });
 
+    const normalLayer = new TileLayer({
+      source: new OSM({ crossOrigin: 'anonymous' })
+    });
+    const satelliteLayer = new TileLayer({
+      source: new XYZ({
+        crossOrigin: 'anonymous',
+        url: 'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
+      }),
+      visible: false
+    });
+    const hybridLabelsLayer = new TileLayer({
+      source: new XYZ({
+        crossOrigin: 'anonymous',
+        url: 'https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}'
+      }),
+      visible: false
+    });
+
+    baseLayersRef.current = {
+      normal: normalLayer,
+      satellite: satelliteLayer,
+      hybridLabels: hybridLabelsLayer
+    };
+
     const map = new Map({
       target: mapElement.current,
       layers: [
-        new TileLayer({ source: new OSM({ crossOrigin: 'anonymous' }) }),
+        normalLayer,
+        satelliteLayer,
+        hybridLabelsLayer,
         vectorLayer
       ],
       view: new View({
@@ -122,6 +160,18 @@ export default function SiteInformation() {
         zoom: 5,
       }),
     });
+
+    if (scaleLineRef.current) {
+      const scaleLine = new ScaleLine({
+        target: scaleLineRef.current,
+        units: 'metric',
+        bar: true,
+        text: false,
+        steps: 2,
+        minWidth: 140
+      });
+      map.addControl(scaleLine);
+    }
 
     map.on('click', (e) => {
       const feature = map.forEachFeatureAtPixel(e.pixel, (f) => f);
@@ -178,6 +228,17 @@ export default function SiteInformation() {
   }, []);
 
   useEffect(() => {
+    const normal = baseLayersRef.current.normal;
+    const satellite = baseLayersRef.current.satellite;
+    const hybridLabels = baseLayersRef.current.hybridLabels;
+    if (!normal || !satellite || !hybridLabels) return;
+
+    normal.setVisible(baseMapType === 'normal');
+    satellite.setVisible(baseMapType === 'satellite' || baseMapType === 'hybrid');
+    hybridLabels.setVisible(baseMapType === 'hybrid');
+  }, [baseMapType]);
+
+  useEffect(() => {
     if (geoData && Array.isArray(geoData) && vectorSourceRef.current) {
       try {
         const featureCollection = {
@@ -225,6 +286,29 @@ export default function SiteInformation() {
     const width = mapArea.offsetWidth;
     const height = mapArea.offsetHeight;
 
+    let scaleCanvas: HTMLCanvasElement | null = null;
+    let scaleW = 0;
+    let scaleH = 0;
+    let scaleCanvasW = 0;
+    let scaleCanvasH = 0;
+    if (scaleLineRef.current) {
+      const scaleEl = scaleLineRef.current;
+      scaleW = Math.max(scaleEl.offsetWidth, scaleEl.scrollWidth);
+      scaleH = Math.max(scaleEl.offsetHeight, scaleEl.scrollHeight);
+      if (scaleW > 0 && scaleH > 0) {
+        scaleCanvas = await html2canvas(scaleEl, {
+          backgroundColor: null,
+          useCORS: true,
+          logging: false,
+          scale: 2,
+          width: scaleW,
+          height: scaleH,
+        });
+        scaleCanvasW = scaleCanvas.width;
+        scaleCanvasH = scaleCanvas.height;
+      }
+    }
+
     const exportCanvas = document.createElement('canvas');
     exportCanvas.width = width;
     exportCanvas.height = height;
@@ -261,6 +345,14 @@ export default function SiteInformation() {
           ctx.drawImage(canvas, 0, 0);
           ctx.restore();
         });
+
+        if (scaleCanvas) {
+          const scaleX = 24;
+          const scaleY = Math.max(height - scaleH - 24, 24);
+          const drawW = scaleW || scaleCanvasW;
+          const drawH = scaleH || scaleCanvasH;
+          ctx.drawImage(scaleCanvas, scaleX, scaleY, drawW, drawH);
+        }
 
         resolve();
       });
@@ -319,6 +411,82 @@ export default function SiteInformation() {
       </div>
 
       <div ref={mapElement} className="flex-1 relative z-10">
+        <div className="absolute left-4 bottom-4 z-20 flex flex-col items-start gap-2 text-[12px] text-zinc-700">
+          <div
+            ref={scaleLineRef}
+            className={`map-scale-line relative ${baseMapType === 'normal' ? '' : 'map-scale-line--dark'}`}
+          />
+          <div className="h-4" />
+          <span className={`text-[11px] font-semibold text-[18px] ${baseMapType === 'normal' ? 'text-black' : 'text-white'}`}>
+            Powered by ESRI
+          </span>
+        </div>
+        <div className="absolute right-4 top-24 z-20 flex flex-col items-end gap-2">
+          <div className="flex flex-col bg-white rounded-md border border-zinc-200 overflow-hidden">
+            <button
+              type="button"
+              className="w-9 h-9 flex items-center justify-center text-[#ef4444] hover:bg-zinc-50 transition-colors text-[18px]"
+              aria-label="Zoom in"
+              onClick={() => {
+                const view = mapRef.current?.getView();
+                if (!view) return;
+                const current = view.getZoom() ?? 0;
+                view.animate({ zoom: current + 1, duration: 250 });
+              }}
+            >
+              +
+            </button>
+            <div className="h-px bg-zinc-200" />
+            <button
+              type="button"
+              className="w-9 h-9 flex items-center justify-center text-[#ef4444] hover:bg-zinc-50 transition-colors text-[18px]"
+              aria-label="Zoom out"
+              onClick={() => {
+                const view = mapRef.current?.getView();
+                if (!view) return;
+                const current = view.getZoom() ?? 0;
+                view.animate({ zoom: current - 1, duration: 250 });
+              }}
+            >
+              -
+            </button>
+          </div>
+
+          <div className="relative">
+            <button
+              type="button"
+              className="w-9 h-9 flex items-center justify-center bg-white rounded-md border border-zinc-200 text-[#ef4444] hover:bg-zinc-50 transition-colors text-[18px]"
+              aria-label="Base map"
+              onClick={() => setShowBaseMapMenu((prev) => !prev)}
+            >
+              <Layers size={16} />
+            </button>
+
+            {showBaseMapMenu && (
+              <div className="absolute right-0 mt-2 w-40 bg-white border border-zinc-200 rounded-xl shadow-xl overflow-hidden">
+                {(
+                  [
+                    { id: 'normal', label: 'Normal map' },
+                    { id: 'satellite', label: 'Satellite' },
+                    { id: 'hybrid', label: 'Hybrid' }
+                  ] as Array<{ id: BaseMapType; label: string }>
+                ).map((option) => (
+                  <button
+                    key={option.id}
+                    type="button"
+                    className={`w-full px-3 py-2 text-left text-[12px] transition-colors ${baseMapType === option.id ? 'bg-[#e7f2ec] text-[#062c21] font-semibold' : 'text-zinc-700 hover:bg-zinc-100'}`}
+                    onClick={() => {
+                      setBaseMapType(option.id);
+                      setShowBaseMapMenu(false);
+                    }}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
         <div className="absolute top-0 left-0 z-20 flex flex-col w-[500px] shadow-2xl overflow-hidden rounded-br-2xl border-r border-b border-white/10">
           <div className="bg-[#20372a] p-6">
             <h1 className="text-white text-xl font-bold">Site Information</h1>
