@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import html2canvas from 'html2canvas';
 import { Map, View } from 'ol';
 import TileLayer from 'ol/layer/Tile';
@@ -131,6 +131,7 @@ export default function MapEditor() {
   const [draggingLegendId, setDraggingLegendId] = useState<number | null>(null);
   const [selectedInfoLayer, setSelectedInfoLayer] = useState<LayerConfig | null>(null);
   const [infoPanelTop, setInfoPanelTop] = useState<number>(0);
+  const [infoPanelAnchor, setInfoPanelAnchor] = useState<DOMRect | null>(null);
   
   const [layerVisibility, setLayerVisibility] = useState<Record<number, boolean>>({});
   const [layerOpacity, setLayerOpacity] = useState<Record<number, number>>({});
@@ -138,20 +139,26 @@ export default function MapEditor() {
   const [infoPanelLeft, setInfoPanelLeft] = useState<number>(0);
 
   const openInfoPanel = (rect: DOMRect, layer: LayerConfig) => {
-    const panelWidth = 300;
+    setInfoPanelAnchor(rect);
+    setSelectedInfoLayer(layer);
+  };
+
+  useLayoutEffect(() => {
+    if (!selectedInfoLayer || !infoPanelAnchor) return;
+
     const padding = 12;
     const viewportW = window.innerWidth;
     const viewportH = window.innerHeight;
-    const panelHeight = Math.min(420, Math.floor(viewportH * 0.5));
-    const offsetY = Math.min(panelHeight * 0.6, 240);
+    const panelWidth = infoPanelRef.current?.offsetWidth ?? 300;
+    const panelHeight = infoPanelRef.current?.offsetHeight ?? Math.min(420, Math.floor(viewportH * 0.5));
 
-    let left = rect.right + 12;
+    let left = infoPanelAnchor.right + 12;
     if (left + panelWidth > viewportW - padding) {
-      left = rect.left - panelWidth - 12;
+      left = infoPanelAnchor.left - panelWidth - 12;
     }
     if (left < padding) left = padding;
 
-    let top = rect.top - offsetY;
+    let top = infoPanelAnchor.top + infoPanelAnchor.height / 2 - panelHeight / 2;
     if (top + panelHeight > viewportH - padding) {
       top = viewportH - panelHeight - padding;
     }
@@ -159,8 +166,7 @@ export default function MapEditor() {
 
     setInfoPanelTop(top);
     setInfoPanelLeft(left);
-    setSelectedInfoLayer(layer);
-  };
+  }, [selectedInfoLayer, infoPanelAnchor]);
 
   useEffect(() => {
     if (!selectedInfoLayer) return;
@@ -656,7 +662,7 @@ export default function MapEditor() {
 
 {selectedInfoLayer && (
   <div 
-    className="absolute w-[300px] max-h-[50vh] bg-white z-[100] border border-black flex flex-col rounded-lg animate-in fade-in zoom-in-95 duration-200"
+    className="absolute w-[300px] max-h-[50vh] bg-white z-[100] border border-black flex flex-col rounded-lg"
     style={{ 
       top: `${infoPanelTop}px`,
       left: `${infoPanelLeft}px`
@@ -917,19 +923,6 @@ export default function MapEditor() {
           )}
         </div>
       </div>
-
-      <style jsx global>{`
-        .custom-scrollbar-detail::-webkit-scrollbar {
-          width: 4px;
-        }
-        .custom-scrollbar-detail::-webkit-scrollbar-track {
-          background: transparent;
-        }
-        .custom-scrollbar-detail::-webkit-scrollbar-thumb {
-          background: #e2e8f0;
-          border-radius: 10px;
-        }
-      `}</style>
     </div>
   );
 };

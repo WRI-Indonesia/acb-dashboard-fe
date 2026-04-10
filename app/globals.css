@@ -8,7 +8,6 @@
   font-display: swap;
 }
 
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -29,4 +28,24 @@ body {
   color: var(--foreground);
   background: var(--background);
   font-family: 'Acumin Pro Condensed', Arial, Helvetica, sans-serif;
+}
+
+.custom-scrollbar-detail {
+  scrollbar-width: thin;
+  scrollbar-color: #8aa796 #e3e7c7;
+}
+.custom-scrollbar-detail::-webkit-scrollbar {
+  width: 10px;
+}
+.custom-scrollbar-detail::-webkit-scrollbar-track {
+  background: #e3e7c7;
+  border-radius: 999px;
+}
+.custom-scrollbar-detail::-webkit-scrollbar-thumb {
+  background: #8aa796;
+  border-radius: 999px;
+  border: 2px solid #e3e7c7;
+}
+.custom-scrollbar-detail::-webkit-scrollbar-thumb:hover {
+  background: #6f8f7c;
 }

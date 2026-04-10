@@ -167,9 +167,8 @@ export default function SiteDetailPanel({ site, onClose }: SiteDetailPanelProps)
     };
 
     return (
-        <div className="absolute top-0 left-[70px] w-[500px] h-full bg-[#e3e7c7] z-40 shadow-2xl overflow-y-auto">
-            <div className="p-4 bg-[#3A463D] text-white">
-                <button onClick={onClose} className="mb-2 text-sm">&larr; Back to Map</button>
+        <div className="absolute top-0 left-[70px] w-[500px] h-full bg-[#e3e7c7] z-40 shadow-2xl overflow-y-auto custom-scrollbar-detail">
+            <div className="pt-[48px] pb-[24px] px-[20px] bg-[#3A463D] text-white">
                 <h2 className="text-xl font-bold">Site Information</h2>
                 <p className="text-xs text-white/80 mt-1">
                     Explore our interactive map for a comprehensive overview of many restoration and conservation sites, showcasing the planet`&apos;`s rich biodiversity and protected areas.
