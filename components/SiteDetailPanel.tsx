@@ -64,25 +64,31 @@ const Section: React.FC<{ title: string; children: React.ReactNode }> = ({ title
     );
 };
 
-const chartOptions: Highcharts.Options = {
-    chart: { type: 'column', backgroundColor: '#c8d2c3' },
-    title: { text: '' },
-    xAxis: {
-        categories: ['2011', '2012', '2013', '2014', '2015', '2016', '2017', '2018', '2019', '2020'],
-        crosshair: true
-    },
-    yAxis: {
-        min: 0,
+const getDeforestationChartOptions = (graphData?: number[]): Highcharts.Options => {
+    const data = Array.isArray(graphData) ? graphData.slice(-10) : [];
+    const n = data.length;
+    const currentYear = new Date().getFullYear();
+    const startYear = currentYear - n + 1;
+    const categories = data.map((_, i) => String(startYear + i));
+
+    return {
+        chart: { type: 'column', backgroundColor: '#c8d2c3' },
         title: { text: '' },
-        labels: { format: '{value}%' },
-    },
-    series: [{
-        showInLegend: false,
-        type: 'column',
-        data: siteDetailData.deforestation.graph_data.slice(0, 10).map(v => Number((v * 100).toFixed(2))),
-        color: '#d9534f',
-        borderWidth: 0
-    }]
+        xAxis: { categories, crosshair: true },
+        yAxis: {
+            min: 0,
+            title: { text: '' },
+            labels: { format: '{value}%' },
+        },
+        series: [{
+            showInLegend: false,
+            type: 'column',
+            data: data.map(v => Number((Number(v) * 100).toFixed(2))),
+            color: '#d9534f',
+            borderWidth: 0
+        }],
+        credits: { enabled: false }
+    };
 };
 
 const biodiversityChartOptions = (title: string, data: BiodiversityIndexData[]): Highcharts.Options => ({
@@ -145,7 +151,7 @@ type SiteDetailPanelProps = {
     onClose: () => void;
 }
 
-export default function SiteDetailPanel({ site, onClose }: SiteDetailPanelProps) {
+export default function SiteDetailPanel({ site }: SiteDetailPanelProps) {
     const [activeTab, setActiveTab] = useState(10);
 
     if (!site) return null;
@@ -161,9 +167,8 @@ export default function SiteDetailPanel({ site, onClose }: SiteDetailPanelProps)
     };
 
     return (
-        <div className="absolute top-0 left-[70px] w-[500px] h-full bg-[#e3e7c7] z-40 shadow-2xl overflow-y-auto">
-            <div className="p-4 bg-[#3A463D] text-white">
-                <button onClick={onClose} className="mb-2 text-sm">&larr; Back to Map</button>
+        <div className="absolute top-0 left-[70px] w-[500px] h-full bg-[#e3e7c7] z-40 shadow-2xl overflow-y-auto custom-scrollbar-detail">
+            <div className="pt-[48px] pb-[24px] px-[20px] bg-[#3A463D] text-white">
                 <h2 className="text-xl font-bold">Site Information</h2>
                 <p className="text-xs text-white/80 mt-1">
                     Explore our interactive map for a comprehensive overview of many restoration and conservation sites, showcasing the planet`&apos;`s rich biodiversity and protected areas.
@@ -175,7 +180,7 @@ export default function SiteDetailPanel({ site, onClose }: SiteDetailPanelProps)
                     {resolvedSite.ahp_name}
                 </h3>
                 <div className="flex items-center gap-2 text-[12px] text-[#2f5b47] mt-1">
-                    <span>Lampung, Sumatra, Indonesia</span>
+                    <span>{resolvedSite.country ?? 'Country: -'}</span>
                 </div>
             </div>
 
@@ -227,7 +232,7 @@ export default function SiteDetailPanel({ site, onClose }: SiteDetailPanelProps)
             <Section title="Deforestation">
                 <div className="bg-[#c8d2c3] p-4 rounded-lg shadow">
                     <h4 className="font-semibold mb-2 text-[#265F44]">Deforestation in this project area in the past 10 years</h4>
-                    <HighchartsReact highcharts={Highcharts} options={chartOptions} />
+                    <HighchartsReact highcharts={Highcharts} options={getDeforestationChartOptions(resolvedSite.deforestation?.graph_data)} />
                     <div className="mt-4 grid grid-cols-5 gap-4 items-start">
                         <div className="col-span-2">
                             {/* Example: show annual value rounded if available */}

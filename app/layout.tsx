@@ -7,6 +7,7 @@ const geistSans = localFont({
   variable: "--font-geist-sans",
   weight: "100 900",
 });
+
 const geistMono = localFont({
   src: "./fonts/GeistMonoVF.woff",
   variable: "--font-geist-mono",
@@ -14,8 +15,13 @@ const geistMono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "ACB Dashboard",
-  description: "ACB Dashboard",
+  title: "ASEAN Centre for Biodiversity Dashboard",
+  description:
+    "Access the ASEAN Centre for Biodiversity interactive map to explore real-time data on ecosystems, species distribution, and protected areas across the region",
+};
+
+export const icons = {
+  icon: '/bsf_logo.png',
 };
 
 export default function RootLayout({
