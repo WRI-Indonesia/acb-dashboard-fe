@@ -700,7 +700,7 @@ export default function MapEditor() {
       </div>
 
       {/* LAYER PANEL (ABSOLUTE) */}
-      <div className="absolute left-[70px] top-0 w-[310px] bg-[#20372A] flex flex-col h-auto max-h-screen [@media(max-height:840px)]:max-h-[60vh] [@media(max-height:840px)]:min-h-[300px] z-20 rounded-br-2xl">
+      <div className="absolute left-[70px] top-0 w-[310px] bg-[#20372A] flex flex-col h-auto max-h-screen [@media(max-height:840px)]:max-h-[80vh] z-20 rounded-br-2xl">
         <div className="p-3 pt-[48px] pr-[20px] pb-[24px] pl-[20px] shrink-0">
           <h1 className="text-xl font-medium text-white tracking-tight leading-tight">
             Data Spatial Layer
@@ -710,8 +710,8 @@ export default function MapEditor() {
           </p>
         </div>
 
-        <div className="bg-[#d9e5db] shadow-inner overflow-hidden rounded-br-2xl min-h-0">
-          <div className="overflow-y-auto px-1 py-3 space-y-0.5 custom-scrollbar-light">
+        <div className="bg-[#d9e5db] shadow-inner overflow-hidden rounded-br-2xl min-h-0 flex flex-col flex-1">
+          <div className="overflow-y-auto px-1 py-3 space-y-0.5 custom-scrollbar-light flex-1">
             {layerConfigs.map((layer) => (
               <div 
                 key={layer.id} 
@@ -803,14 +803,15 @@ export default function MapEditor() {
       {/* MAP AREA */}
       <div ref={mapElement} className="flex-1 h-full relative z-10">
         <div className="absolute left-4 bottom-4 z-20 flex flex-col items-start gap-2 text-[12px] text-zinc-700">
-          <div
-            ref={scaleLineRef}
-            className={`map-scale-line relative ${baseMapType === 'normal' ? '' : 'map-scale-line--dark'}`}
-          />
-          <div className="h-4" />
-          <span className={`text-[11px] font-semibold text-[18px] ${baseMapType === 'normal' ? 'text-black' : 'text-white'}`}>
-            Powered by ESRI
-          </span>
+          <div className="flex flex-row">
+            <span className={`mr-[20px] text-[11px] font-semibold text-[18px] ${baseMapType === 'normal' ? 'text-black' : 'text-white'}`}>
+              Powered by ESRI
+            </span>
+            <div
+              ref={scaleLineRef}
+              className={`map-scale-line relative ${baseMapType === 'normal' ? '' : 'map-scale-line--dark'}`}
+            />
+          </div>
         </div>
         <div className="absolute right-4 top-24 z-20 flex flex-col items-end gap-2">
           <div className="flex flex-col bg-white rounded-md border border-zinc-200 overflow-hidden">
