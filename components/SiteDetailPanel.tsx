@@ -45,6 +45,9 @@ const siteDetailData = {
     }
 };
 
+const SIMPSON_DIVERSITY_THRESHOLD = 0.8;
+const SHANNON_DIVERSITY_THRESHOLD = 2.2;
+
 
 const Section: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => {
     const [isCollapsed, setIsCollapsed] = useState(false);
@@ -91,13 +94,27 @@ const getDeforestationChartOptions = (graphData?: number[]): Highcharts.Options 
     };
 };
 
-const biodiversityChartOptions = (title: string, data: BiodiversityIndexData[]): Highcharts.Options => ({
+const getBiodiversityPointColor = (
+    value: number,
+    threshold: number,
+    lowColor: string,
+    highColor: string
+) => (value >= threshold ? highColor : lowColor);
+
+const biodiversityChartOptions = (
+    title: string,
+    data: BiodiversityIndexData[],
+    legendItems: { name: string; color: string }[],
+    threshold: number
+): Highcharts.Options => ({
     chart: {
         type: 'line',
         backgroundColor: '#C8D2C3',
     },
     title: {
         text: title,
+        align: 'left',
+        margin: 18,
         style: { color: '#265F44', fontWeight: 'bold', fontSize: '18px' }
     },
     xAxis: {
@@ -113,29 +130,69 @@ const biodiversityChartOptions = (title: string, data: BiodiversityIndexData[]):
         gridLineColor: '#b7cbb7',
     },
     legend: {
-        enabled: false,
+        enabled: true,
+        align: 'right',
+        verticalAlign: 'top',
+        layout: 'horizontal',
+        y: 4,
         itemStyle: { color: '#265F44', fontWeight: 'bold' },
+        symbolRadius: 6,
     },
-    series: [{
-        name: title,
-        type: 'line',
-        data: data.map(d => ({ y: Number(d.value.toFixed(2)), marker: { symbol: 'circle', fillColor: '#b91c1c', lineColor: '#b91c1c', lineWidth: 2, radius: 5 } })),
-        color: '#265F44',
-        marker: {
-            enabled: true,
-            fillColor: '#b91c1c',
-            lineColor: '#b91c1c',
+    series: [
+        {
+            name: legendItems[0]?.name ?? title,
+            type: 'line',
+            data: data.map((d) => {
+                const pointColor = getBiodiversityPointColor(
+                    d.value,
+                    threshold,
+                    legendItems[1]?.color ?? legendItems[0]?.color ?? '#b91c1c',
+                    legendItems[0]?.color ?? '#b91c1c'
+                );
+                return {
+                    y: Number(d.value.toFixed(2)),
+                    marker: {
+                        symbol: 'circle',
+                        fillColor: pointColor,
+                        lineColor: pointColor,
+                        lineWidth: 2,
+                        radius: 5
+                    }
+                };
+            }),
+            color: '#265F44',
+            marker: {
+                enabled: true,
+                fillColor: legendItems[0]?.color ?? '#b91c1c',
+                lineColor: legendItems[0]?.color ?? '#b91c1c',
+                lineWidth: 2,
+                radius: 5,
+            },
             lineWidth: 2,
-            radius: 5,
+            states: {
+                hover: {
+                    lineWidth: 3
+                }
+            },
+            showInLegend: true,
         },
-        lineWidth: 2,
-        states: {
-            hover: {
-                lineWidth: 3
-            }
-        },
-        showInLegend: true,
-    }],
+        ...legendItems.slice(1).map((item) => ({
+            name: item.name,
+            type: 'line',
+            data: data.length ? [{ x: 0, y: null }] : [],
+            color: item.color,
+            lineWidth: 0,
+            marker: {
+                enabled: true,
+                fillColor: item.color,
+                lineColor: item.color,
+                lineWidth: 2,
+                radius: 5
+            },
+            enableMouseTracking: false,
+            showInLegend: true,
+        }))
+    ],
     plotOptions: {
         series: {
             marker: {
@@ -339,10 +396,32 @@ export default function SiteDetailPanel({ site }: SiteDetailPanelProps) {
 
             <Section title="Biodiversity Index Analysis">
                 <div>
-                    <HighchartsReact highcharts={Highcharts} options={biodiversityChartOptions('Annual Simpson Diversity Index', resolvedSite.biodiversity_index_analysis.simpson)} />
+                    <HighchartsReact
+                        highcharts={Highcharts}
+                        options={biodiversityChartOptions(
+                            'Annual Simpson Diversity Index',
+                            resolvedSite.biodiversity_index_analysis.simpson,
+                            [
+                                { name: 'Very high diversity', color: '#dc2626' },
+                                { name: 'High diversity', color: '#b91c1c' }
+                            ],
+                            SIMPSON_DIVERSITY_THRESHOLD
+                        )}
+                    />
                 </div>
                 <div>
-                    <HighchartsReact highcharts={Highcharts} options={biodiversityChartOptions('Annual Shannon Diversity Index', resolvedSite.biodiversity_index_analysis.shannon)} />
+                    <HighchartsReact
+                        highcharts={Highcharts}
+                        options={biodiversityChartOptions(
+                            'Annual Shannon Diversity Index',
+                            resolvedSite.biodiversity_index_analysis.shannon,
+                            [
+                                { name: 'High diversity', color: '#dc2626' },
+                                { name: 'Moderate diversity', color: '#f59e0b' }
+                            ],
+                            SHANNON_DIVERSITY_THRESHOLD
+                        )}
+                    />
                 </div>
             </Section>
         </div>
