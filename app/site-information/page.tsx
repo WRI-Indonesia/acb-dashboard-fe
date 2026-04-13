@@ -20,7 +20,7 @@ import type { SiteDetailData } from '../../types/site';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 
-type BaseMapType = 'normal' | 'satellite' | 'hybrid';
+type BaseMapType = 'grey' | 'osm' | 'satellite';
 
 const polygonStyle = new Style({
   stroke: new Stroke({
@@ -97,13 +97,14 @@ export default function SiteInformation() {
   const detailAbortRef = useRef<AbortController | null>(null);
   const [hoverData, setHoverData] = useState<HoverData | null>(null);
   const [pointerPos, setPointerPos] = useState({ x: 0, y: 0 });
-  const [baseMapType, setBaseMapType] = useState<BaseMapType>('normal');
+  const [baseMapType, setBaseMapType] = useState<BaseMapType>('osm');
   const [showBaseMapMenu, setShowBaseMapMenu] = useState(false);
   const baseLayersRef = useRef<{
-    normal: TileLayer<OSM> | null;
+    grey: TileLayer<XYZ> | null;
+    osm: TileLayer<OSM> | null;
     satellite: TileLayer<XYZ> | null;
-    hybridLabels: TileLayer<XYZ> | null;
-  }>({ normal: null, satellite: null, hybridLabels: null });
+    satelliteLabels: TileLayer<XYZ> | null;
+  }>({ grey: null, osm: null, satellite: null, satelliteLabels: null });
 
   useEffect(() => {
     fetch(`${API_BASE_URL}/api/v1/geos/polygon`)
@@ -123,7 +124,14 @@ export default function SiteInformation() {
       style: polygonStyle
     });
 
-    const normalLayer = new TileLayer({
+    const greyLayer = new TileLayer({
+      source: new XYZ({
+        crossOrigin: 'anonymous',
+        url: 'https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}'
+      }),
+      visible: false
+    });
+    const osmLayer = new TileLayer({
       source: new OSM({ crossOrigin: 'anonymous' })
     });
     const satelliteLayer = new TileLayer({
@@ -133,7 +141,7 @@ export default function SiteInformation() {
       }),
       visible: false
     });
-    const hybridLabelsLayer = new TileLayer({
+    const satelliteLabelsLayer = new TileLayer({
       source: new XYZ({
         crossOrigin: 'anonymous',
         url: 'https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}'
@@ -142,17 +150,19 @@ export default function SiteInformation() {
     });
 
     baseLayersRef.current = {
-      normal: normalLayer,
+      grey: greyLayer,
+      osm: osmLayer,
       satellite: satelliteLayer,
-      hybridLabels: hybridLabelsLayer
+      satelliteLabels: satelliteLabelsLayer
     };
 
     const map = new Map({
       target: mapElement.current,
       layers: [
-        normalLayer,
+        greyLayer,
+        osmLayer,
         satelliteLayer,
-        hybridLabelsLayer,
+        satelliteLabelsLayer,
         vectorLayer
       ],
       view: new View({
@@ -228,14 +238,16 @@ export default function SiteInformation() {
   }, []);
 
   useEffect(() => {
-    const normal = baseLayersRef.current.normal;
+    const grey = baseLayersRef.current.grey;
+    const osm = baseLayersRef.current.osm;
     const satellite = baseLayersRef.current.satellite;
-    const hybridLabels = baseLayersRef.current.hybridLabels;
-    if (!normal || !satellite || !hybridLabels) return;
+    const satelliteLabels = baseLayersRef.current.satelliteLabels;
+    if (!grey || !osm || !satellite || !satelliteLabels) return;
 
-    normal.setVisible(baseMapType === 'normal');
-    satellite.setVisible(baseMapType === 'satellite' || baseMapType === 'hybrid');
-    hybridLabels.setVisible(baseMapType === 'hybrid');
+    grey.setVisible(baseMapType === 'grey');
+    osm.setVisible(baseMapType === 'osm');
+    satellite.setVisible(baseMapType === 'satellite');
+    satelliteLabels.setVisible(baseMapType === 'satellite');
   }, [baseMapType]);
 
   useEffect(() => {
@@ -414,10 +426,10 @@ export default function SiteInformation() {
         <div className="absolute left-4 bottom-4 z-20 flex flex-col items-start gap-2 text-[12px] text-zinc-700">
           <div
             ref={scaleLineRef}
-            className={`map-scale-line relative ${baseMapType === 'normal' ? '' : 'map-scale-line--dark'}`}
+            className={`map-scale-line relative ${baseMapType === 'satellite' ? 'map-scale-line--dark' : ''}`}
           />
           <div className="h-4" />
-          <span className={`text-[11px] font-semibold text-[18px] ${baseMapType === 'normal' ? 'text-black' : 'text-white'}`}>
+          <span className={`text-[11px] font-semibold text-[18px] ${baseMapType === 'satellite' ? 'text-white' : 'text-black'}`}>
             Powered by ESRI
           </span>
         </div>
@@ -466,9 +478,9 @@ export default function SiteInformation() {
               <div className="absolute right-0 mt-2 w-40 bg-white border border-zinc-200 rounded-xl shadow-xl overflow-hidden">
                 {(
                   [
-                    { id: 'normal', label: 'Normal map' },
-                    { id: 'satellite', label: 'Satellite' },
-                    { id: 'hybrid', label: 'Hybrid' }
+                    { id: 'grey', label: 'Grey' },
+                    { id: 'osm', label: 'OSM' },
+                    { id: 'satellite', label: 'Satellite' }
                   ] as Array<{ id: BaseMapType; label: string }>
                 ).map((option) => (
                   <button
@@ -491,7 +503,7 @@ export default function SiteInformation() {
           <div className="bg-[#20372a] p-6">
             <h1 className="text-white text-xl font-bold">Site Information</h1>
             <p className="text-[#a1b3ae] text-xs mt-2 leading-relaxed">
-              Explore our interactive map for a comprehensive overview of many restoration and conservation sites, showcasing the planet`&apos;`s rich biodiversity and protected areas.
+              Explore our interactive map for a comprehensive overview of many restoration and conservation sites, showcasing the planet&apos;s rich biodiversity and protected areas.
             </p>
           </div>
 
