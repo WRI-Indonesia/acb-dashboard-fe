@@ -76,7 +76,7 @@ type LegendResponse = {
   Legend?: LegendLayer[];
 };
 
-type BaseMapType = 'normal' | 'satellite' | 'hybrid';
+type BaseMapType = 'grey' | 'osm' | 'satellite';
 
 const createWMTSSource = (config: LayerConfig) => {
   const projection = getProjection("EPSG:3857");
@@ -137,7 +137,7 @@ export default function MapEditor() {
   const [selectedInfoLayer, setSelectedInfoLayer] = useState<LayerConfig | null>(null);
   const [infoPanelTop, setInfoPanelTop] = useState<number>(0);
   const [infoPanelAnchor, setInfoPanelAnchor] = useState<DOMRect | null>(null);
-  const [baseMapType, setBaseMapType] = useState<BaseMapType>('normal');
+  const [baseMapType, setBaseMapType] = useState<BaseMapType>('osm');
   const [showBaseMapMenu, setShowBaseMapMenu] = useState(false);
   
   const [layerVisibility, setLayerVisibility] = useState<Record<number, boolean>>({});
@@ -145,10 +145,11 @@ export default function MapEditor() {
   const [showOpacitySlider, setShowOpacitySlider] = useState<Record<number, boolean>>({});
   const [infoPanelLeft, setInfoPanelLeft] = useState<number>(0);
   const baseLayersRef = useRef<{
-    normal: TileLayer<OSM> | null;
+    grey: TileLayer<XYZ> | null;
+    osm: TileLayer<OSM> | null;
     satellite: TileLayer<XYZ> | null;
-    hybridLabels: TileLayer<XYZ> | null;
-  }>({ normal: null, satellite: null, hybridLabels: null });
+    satelliteLabels: TileLayer<XYZ> | null;
+  }>({ grey: null, osm: null, satellite: null, satelliteLabels: null });
 
   const openInfoPanel = (rect: DOMRect, layer: LayerConfig) => {
     setInfoPanelAnchor(rect);
@@ -211,7 +212,14 @@ export default function MapEditor() {
   useEffect(() => {
     if (!mapElement.current) return;
 
-    const normalLayer = new TileLayer({
+    const greyLayer = new TileLayer({
+      source: new XYZ({
+        crossOrigin: 'anonymous',
+        url: 'https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}'
+      }),
+      visible: false
+    });
+    const osmLayer = new TileLayer({
       source: new OSM({ crossOrigin: 'anonymous' })
     });
     const satelliteLayer = new TileLayer({
@@ -221,7 +229,7 @@ export default function MapEditor() {
       }),
       visible: false
     });
-    const hybridLabelsLayer = new TileLayer({
+    const satelliteLabelsLayer = new TileLayer({
       source: new XYZ({
         crossOrigin: 'anonymous',
         url: 'https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}'
@@ -230,20 +238,22 @@ export default function MapEditor() {
     });
 
     baseLayersRef.current = {
-      normal: normalLayer,
+      grey: greyLayer,
+      osm: osmLayer,
       satellite: satelliteLayer,
-      hybridLabels: hybridLabelsLayer
+      satelliteLabels: satelliteLabelsLayer
     };
 
     const map = new Map({
       target: mapElement.current,
       layers: [
-          normalLayer,
-          satelliteLayer,
-          hybridLabelsLayer
+        greyLayer,
+        osmLayer,
+        satelliteLayer,
+        satelliteLabelsLayer
       ],
       view: new View({
-        center: [13139395, -209819], 
+        center: [13139395, -209819],
         zoom: 5,
       }),
     });
@@ -265,14 +275,16 @@ export default function MapEditor() {
   }, []);
 
   useEffect(() => {
-    const normal = baseLayersRef.current.normal;
+    const grey = baseLayersRef.current.grey;
+    const osm = baseLayersRef.current.osm;
     const satellite = baseLayersRef.current.satellite;
-    const hybridLabels = baseLayersRef.current.hybridLabels;
-    if (!normal || !satellite || !hybridLabels) return;
+    const satelliteLabels = baseLayersRef.current.satelliteLabels;
+    if (!grey || !osm || !satellite || !satelliteLabels) return;
 
-    normal.setVisible(baseMapType === 'normal');
-    satellite.setVisible(baseMapType === 'satellite' || baseMapType === 'hybrid');
-    hybridLabels.setVisible(baseMapType === 'hybrid');
+    grey.setVisible(baseMapType === 'grey');
+    osm.setVisible(baseMapType === 'osm');
+    satellite.setVisible(baseMapType === 'satellite');
+    satelliteLabels.setVisible(baseMapType === 'satellite');
   }, [baseMapType]);
 
   useEffect(() => {
@@ -702,10 +714,10 @@ export default function MapEditor() {
       {/* LAYER PANEL (ABSOLUTE) */}
       <div className="absolute left-[70px] top-0 w-[310px] bg-[#20372A] flex flex-col h-auto max-h-screen [@media(max-height:840px)]:max-h-[80vh] z-20 rounded-br-2xl">
         <div className="p-3 pt-[48px] pr-[20px] pb-[24px] pl-[20px] shrink-0">
-          <h1 className="text-xl font-medium text-white tracking-tight leading-tight">
+          <h1 className="text-xl font-medium text-[24px] text-white tracking-tight leading-tight">
             Data Spatial Layer
           </h1>
-          <p className="text-[11px] text-[#a1b3ae] mt-2 leading-relaxed">
+          <p className="text-[12px] text-[#a1b3ae] mt-2 leading-relaxed">
             Enable/Disable Spatial Layers: Use the toggles to customize your data visualization
           </p>
         </div>
@@ -723,10 +735,10 @@ export default function MapEditor() {
                   className="data-[state=checked]:bg-[#20372A] data-[state=unchecked]:bg-[#ffffff]/60 shrink-0"
                 />
                 <div className="flex flex-col flex-1 min-w-0 pr-2">
-                  <Label className="text-[13px] font-bold leading-tight cursor-pointer text-[#062c21] truncate block w-full">
+                  <Label className="text-[16px] font-medium leading-tight cursor-pointer text-[#4C3838] truncate block w-full">
                     {layer.name}
                   </Label>
-                  <p className="text-[10px] mt-1 text-[#062c21]/80 truncate w-full">
+                  <p className="text-[12px] font-normal mt-1 text-[#4C3838] truncate w-full">
                     {layer.short_description}
                   </p>
                 </div>
@@ -804,12 +816,12 @@ export default function MapEditor() {
       <div ref={mapElement} className="flex-1 h-full relative z-10">
         <div className="absolute left-4 bottom-4 z-20 flex flex-col items-start gap-2 text-[12px] text-zinc-700">
           <div className="flex flex-row">
-            <span className={`mr-[20px] text-[11px] font-semibold text-[18px] ${baseMapType === 'normal' ? 'text-black' : 'text-white'}`}>
+            <span className={`mr-[20px] text-[11px] font-semibold text-[18px] ${baseMapType === 'satellite' ? 'text-white' : 'text-black'}`}>
               Powered by ESRI
             </span>
             <div
               ref={scaleLineRef}
-              className={`map-scale-line relative ${baseMapType === 'normal' ? '' : 'map-scale-line--dark'}`}
+              className={`map-scale-line relative ${baseMapType === 'satellite' ? 'map-scale-line--dark' : ''}`}
             />
           </div>
         </div>
@@ -817,7 +829,7 @@ export default function MapEditor() {
           <div className="flex flex-col bg-white rounded-md border border-zinc-200 overflow-hidden">
             <button
               type="button"
-              className="w-9 h-9 flex items-center justify-center text-[#ef4444] hover:bg-zinc-50 transition-colors text-[18px]"
+              className="w-[33px] h-[33px] flex items-center justify-center text-[#FA412B] hover:bg-zinc-50 transition-colors text-[30px]"
               aria-label="Zoom in"
               onClick={() => {
                 const view = mapRef.current?.getView();
@@ -826,12 +838,18 @@ export default function MapEditor() {
                 view.animate({ zoom: current + 1, duration: 250 });
               }}
             >
-              +
+              <Image
+                src="/zoom_in.png"
+                alt="Zoom in"
+                width={17}
+                height={17}
+                className="object-contain"
+              />
             </button>
             <div className="h-px bg-zinc-200" />
             <button
               type="button"
-              className="w-9 h-9 flex items-center justify-center text-[#ef4444] hover:bg-zinc-50 transition-colors text-[18px]"
+              className="w-[33px] h-[33px] flex items-center justify-center text-[#FA412B] hover:bg-zinc-50 transition-colors text-[18px]"
               aria-label="Zoom out"
               onClick={() => {
                 const view = mapRef.current?.getView();
@@ -840,27 +858,33 @@ export default function MapEditor() {
                 view.animate({ zoom: current - 1, duration: 250 });
               }}
             >
-              -
+              <Image
+                src="/zoom_out.png"
+                alt="Zoom out"
+                width={17}
+                height={17}
+                className="object-contain"
+              />
             </button>
           </div>
 
           <div className="relative">
             <button
               type="button"
-              className="w-9 h-9 flex items-center justify-center bg-white rounded-md border border-zinc-200 text-[#ef4444] hover:bg-zinc-50 transition-colors text-[18px]"
+              className="w-9 h-9 flex items-center justify-center bg-white rounded-md border border-zinc-200 text-[#FA412B] hover:bg-zinc-50 transition-colors text-[18px]"
               aria-label="Base map"
               onClick={() => setShowBaseMapMenu((prev) => !prev)}
             >
-              <Layers size={16} />
+              <Layers size={17} />
             </button>
 
             {showBaseMapMenu && (
               <div className="absolute right-0 mt-2 w-40 bg-white border border-zinc-200 rounded-xl shadow-xl overflow-hidden">
                 {(
                   [
-                    { id: 'normal', label: 'Normal map' },
-                    { id: 'satellite', label: 'Satellite' },
-                    { id: 'hybrid', label: 'Hybrid' }
+                    { id: 'grey', label: 'Grey' },
+                    { id: 'osm', label: 'OSM' },
+                    { id: 'satellite', label: 'Satellite' }
                   ] as Array<{ id: BaseMapType; label: string }>
                 ).map((option) => (
                   <button
@@ -890,7 +914,7 @@ export default function MapEditor() {
             {isLegendExpanded ? <ChevronDown size={20} /> : <ChevronUp size={20} />}
           </button>
 
-          <div className="w-[344px]">
+          <div className="w-[300px]">
             <div className="bg-[#3A463D] flex items-center justify-between h-[70px] px-[16px] py-[20px] rounded-tl-xl shadow-2xl">
               <h3 className="text-[18px] font-semibold text-white tracking-wide">Legend</h3>
               <button
@@ -904,21 +928,21 @@ export default function MapEditor() {
           </div>
 
           {isLegendExpanded && (
-            <div className="w-[344px] bg-white shadow-2xl border-zinc-200 overflow-hidden rounded-br-xl animate-in fade-in slide-in-from-bottom-2 duration-200 flex flex-col">
+            <div className="w-[300px] bg-white shadow-2xl border-zinc-200 overflow-hidden rounded-br-xl animate-in fade-in slide-in-from-bottom-2 duration-200 flex flex-col">
               <div className="bg-white">
                 {activeLayerConfigs.length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-[90px]">
-                    <p className="text-zinc-400 text-[13px] mb-2 font-medium">No layers data is selected</p>
+                    <p className="text-zinc-400 text-[12px] mb-2 font-medium">No layers data is selected</p>
                     <div className="flex items-center gap-3 text-[#064e3b] font-bold">
                       <svg width="24" height="16" viewBox="0 0 28 20" fill="none">
                           <rect x="0.5" y="4.5" width="23" height="11" rx="5.5" fill="white" stroke="#064E3B"/>
                           <circle cx="7" cy="10" r="3.5" fill="#064E3B"/>
                       </svg>
-                      <span className="text-[14px]">Activate your layers filter first</span>
+                      <span className="text-[14px] font-semibold font-[#111A13]">Activate your layers filter first</span>
                     </div>
                   </div>
                 ) : (
-                  <div className="p-6 max-h-[350px] overflow-y-auto custom-scrollbar">
+                  <div className="p-6 max-h-[380px] overflow-y-auto custom-scrollbar">
                     <div className="space-y-6">
                       {orderedActiveLayerConfigs.map((config, index) => {
                         const currentLegend = legendData[config.layers];
