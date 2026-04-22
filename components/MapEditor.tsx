@@ -694,8 +694,8 @@ export default function MapEditor() {
 
         <div className="flex flex-col gap-4 w-full items-center">
           <Link href="/">
-            <div className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-inner cursor-pointer transition-all border ${
-              pathname === '/' ? 'bg-[#062c21] border-white/10' : 'hover:bg-[#062c21]/50 border-transparent text-white/50'
+            <div className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all border ${
+              pathname === '/' ? 'bg-[#062c21] border-white/10 text-[#4ade80]' : 'text-white/40 hover:text-[#4ade80] hover:bg-[#062c21]/50 border-transparent'
             }`}>
               <Layers size={22} />
             </div>
