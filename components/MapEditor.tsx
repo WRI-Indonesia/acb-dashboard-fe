@@ -253,8 +253,8 @@ export default function MapEditor() {
         satelliteLabelsLayer
       ],
       view: new View({
-        center: [13139395, -209819],
-        zoom: 5,
+        center: [12942635.99126638, 1315270.1871786504],
+        zoom: 4.861856434034492,
       }),
     });
 

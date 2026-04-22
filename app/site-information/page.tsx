@@ -17,6 +17,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import SiteDetailPanel from '@/components/SiteDetailPanel';
 import type { SiteDetailData } from '../../types/site';
+import { json } from 'stream/consumers';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 
@@ -109,7 +110,13 @@ export default function SiteInformation() {
   useEffect(() => {
     fetch(`${API_BASE_URL}/api/v1/geos/polygon`)
       .then(res => res.json())
-      .then(data => setGeoData(data))
+      .then(data => {
+        setGeoData(data);
+
+        const view = mapRef.current?.getView();
+        const center = view?.getCenter();
+        console.log('[polygon fetch + setGeoData] zoom:', view?.getZoom(), 'x:', center?.[0], 'y:', center?.[1]);
+      })
       .catch(err => console.error("Error fetch polygon:", err));
   }, []);
 
@@ -209,7 +216,7 @@ export default function SiteInformation() {
         .catch((err) => {
           if (err?.name === 'AbortError') return;
           console.error('Error fetch site detail:', err);
-        });
+        });      
     });
 
     map.on('pointermove', (e) => {
@@ -278,6 +285,12 @@ export default function SiteInformation() {
         if (features.length > 0 && mapRef.current && vectorSourceRef.current) {
           const extent = vectorSourceRef.current.getExtent();
           if (extent) {
+            mapRef.current.once('moveend', () => {
+              const view = mapRef.current?.getView();
+              const center = view?.getCenter();
+              console.log('[setGeoData rendered] zoom:', view?.getZoom(), 'x:', center?.[0], 'y:', center?.[1]);
+            });
+
             mapRef.current.getView().fit(extent, { 
               padding: [100, 100, 100, 100], 
               duration: 1000 
@@ -561,46 +574,6 @@ export default function SiteInformation() {
           </div>
         </div>
       )}
-
-      {/* DYNAMIC LEGEND */}
-      <div className="absolute bottom-6 right-6 z-10 flex flex-col items-end gap-0 transition-all duration-300">
-        <button 
-          onClick={() => setIsLegendExpanded(!isLegendExpanded)}
-          className="bg-white p-1.5 rounded-t-lg shadow-sm border-x border-t border-zinc-200 text-zinc-800 hover:bg-zinc-50 transition-all flex items-center justify-center w-10 h-8"
-        >
-          {isLegendExpanded ? <ChevronDown size={20} /> : <ChevronUp size={20} />}
-        </button>
-
-          <div className="w-[344px]">
-            <div className="bg-[#3A463D] flex items-center justify-between h-[70px] px-[16px] py-[20px] rounded-tl-xl shadow-2xl">
-              <h3 className="text-[18px] font-semibold text-white tracking-wide">Legend</h3>
-              <button
-                className="bg-[#059669] hover:bg-[#047857] text-white text-[10px] px-[18px] py-[10px] rounded-full transition-colors w-[155px] h-[30px] text-[14px] font-semibold flex items-center justify-center"
-                onClick={handleExportMapAsImage}
-                type="button"
-              >
-                Export as Image
-              </button>
-            </div>
-
-          {isLegendExpanded && (
-            <div className="w-[344px] bg-white shadow-2xl border-zinc-200 overflow-hidden rounded-br-xl animate-in fade-in slide-in-from-bottom-2 duration-200 flex flex-col">
-              <div className="bg-white">
-                <div className="flex flex-col items-center justify-center h-[90px]">
-                  <p className="text-zinc-400 text-[13px] mb-2 font-medium">No layers data is selected</p>
-                  <div className="flex items-center gap-3 text-[#064e3b] font-bold">
-                    <svg width="24" height="16" viewBox="0 0 28 20" fill="none">
-                        <rect x="0.5" y="4.5" width="23" height="11" rx="5.5" fill="white" stroke="#064E3B"/>
-                        <circle cx="7" cy="10" r="3.5" fill="#064E3B"/>
-                    </svg>
-                    <span className="text-[14px]">Activate your layers filter first</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-      </div>
-    </div>
   </div>
   );
 }
