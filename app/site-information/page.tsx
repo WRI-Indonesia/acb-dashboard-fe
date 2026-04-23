@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from 'react';
-import html2canvas from 'html2canvas';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import Feature from 'ol/Feature';
+import type Geometry from 'ol/geom/Geometry';
 import { Map, View } from 'ol';
 import TileLayer from 'ol/layer/Tile';
 import OSM from 'ol/source/OSM';
@@ -12,12 +13,11 @@ import GeoJSON from 'ol/format/GeoJSON';
 import Image from 'next/image';
 import { Style, Stroke, Fill } from 'ol/style';
 import { ScaleLine } from 'ol/control';
-import { ChevronDown, ChevronUp, Layers, Map as MapIcon } from 'lucide-react';
+import { Layers, Map as MapIcon } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import SiteDetailPanel from '@/components/SiteDetailPanel';
 import type { SiteDetailData } from '../../types/site';
-import { json } from 'stream/consumers';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 
@@ -93,13 +93,13 @@ export default function SiteInformation() {
   const scaleLineRef = useRef<HTMLDivElement>(null);
   const [geoData, setGeoData] = useState<GeoDataItem[] | null>(null);
   const pathname = usePathname();
-  const [isLegendExpanded, setIsLegendExpanded] = useState(true);
   const [selectedSite, setSelectedSite] = useState<SiteDetailData | null>(null);
   const detailAbortRef = useRef<AbortController | null>(null);
   const [hoverData, setHoverData] = useState<HoverData | null>(null);
   const [pointerPos, setPointerPos] = useState({ x: 0, y: 0 });
   const [baseMapType, setBaseMapType] = useState<BaseMapType>('osm');
   const [showBaseMapMenu, setShowBaseMapMenu] = useState(false);
+  const previousMapViewRef = useRef<{ center: [number, number]; zoom: number; rotation: number } | null>(null);
   const baseLayersRef = useRef<{
     grey: TileLayer<XYZ> | null;
     osm: TileLayer<OSM> | null;
@@ -107,16 +107,59 @@ export default function SiteInformation() {
     satelliteLabels: TileLayer<XYZ> | null;
   }>({ grey: null, osm: null, satellite: null, satelliteLabels: null });
 
+  const focusToFeature = useCallback((feature: Feature<Geometry>) => {
+    const map = mapRef.current;
+    if (!map || !feature) return;
+
+    const geometry = feature.getGeometry();
+    if (!geometry) return;
+
+    const view = map.getView();
+    if (!previousMapViewRef.current) {
+      const center = view.getCenter();
+      const zoom = view.getZoom();
+      if (center && zoom != null) {
+        previousMapViewRef.current = {
+          center: [center[0], center[1]],
+          zoom,
+          rotation: view.getRotation() ?? 0,
+        };
+      }
+    }
+
+    view.fit(geometry.getExtent(), {
+      padding: [100, 100, 100, 560],
+      duration: 600,
+      maxZoom: 10,
+    });
+  }, []);
+
+  const restorePreviousMapView = useCallback(() => {
+    const map = mapRef.current;
+    const previousView = previousMapViewRef.current;
+    if (!map || !previousView) return;
+
+    map.getView().animate({
+      center: previousView.center,
+      zoom: previousView.zoom,
+      rotation: previousView.rotation,
+      duration: 600,
+    });
+
+    previousMapViewRef.current = null;
+  }, []);
+
+  const clearSelectedSite = useCallback(() => {
+    detailAbortRef.current?.abort();
+    detailAbortRef.current = null;
+    setSelectedSite(null);
+    restorePreviousMapView();
+  }, [restorePreviousMapView]);
+
   useEffect(() => {
     fetch(`${API_BASE_URL}/api/v1/geos/polygon`)
       .then(res => res.json())
-      .then(data => {
-        setGeoData(data);
-
-        const view = mapRef.current?.getView();
-        const center = view?.getCenter();
-        console.log('[polygon fetch + setGeoData] zoom:', view?.getZoom(), 'x:', center?.[0], 'y:', center?.[1]);
-      })
+      .then(data => setGeoData(data))
       .catch(err => console.error("Error fetch polygon:", err));
   }, []);
 
@@ -191,17 +234,17 @@ export default function SiteInformation() {
     }
 
     map.on('click', (e) => {
-      const feature = map.forEachFeatureAtPixel(e.pixel, (f) => f);
+      const feature = map.forEachFeatureAtPixel(e.pixel, (f) => f as Feature<Geometry>);
       if (!feature) {
-        detailAbortRef.current?.abort();
-        detailAbortRef.current = null;
-        setSelectedSite(null);
+        clearSelectedSite();
         return;
       }
 
       const properties = feature.getProperties() as { id?: string | number; name?: string; area?: number };
       const siteId = properties.id;
       if (siteId == null) return;
+
+      focusToFeature(feature);
 
       detailAbortRef.current?.abort();
       const controller = new AbortController();
@@ -242,7 +285,7 @@ export default function SiteInformation() {
 
     mapRef.current = map;
     return () => map.setTarget(undefined);
-  }, []);
+  }, [clearSelectedSite, focusToFeature]);
 
   useEffect(() => {
     const grey = baseLayersRef.current.grey;
@@ -285,12 +328,6 @@ export default function SiteInformation() {
         if (features.length > 0 && mapRef.current && vectorSourceRef.current) {
           const extent = vectorSourceRef.current.getExtent();
           if (extent) {
-            mapRef.current.once('moveend', () => {
-              const view = mapRef.current?.getView();
-              const center = view?.getCenter();
-              console.log('[setGeoData rendered] zoom:', view?.getZoom(), 'x:', center?.[0], 'y:', center?.[1]);
-            });
-
             mapRef.current.getView().fit(extent, { 
               padding: [100, 100, 100, 100], 
               duration: 1000 
@@ -303,105 +340,12 @@ export default function SiteInformation() {
     }
   }, [geoData]);
 
-  const handleExportMapAsImage = async () => {
-    const mapArea = mapElement.current;
-    const map = mapRef.current;
-    if (!mapArea || !map) return;
-
-    const width = mapArea.offsetWidth;
-    const height = mapArea.offsetHeight;
-
-    let scaleCanvas: HTMLCanvasElement | null = null;
-    let scaleW = 0;
-    let scaleH = 0;
-    let scaleCanvasW = 0;
-    let scaleCanvasH = 0;
-    if (scaleLineRef.current) {
-      const scaleEl = scaleLineRef.current;
-      scaleW = Math.max(scaleEl.offsetWidth, scaleEl.scrollWidth);
-      scaleH = Math.max(scaleEl.offsetHeight, scaleEl.scrollHeight);
-      if (scaleW > 0 && scaleH > 0) {
-        scaleCanvas = await html2canvas(scaleEl, {
-          backgroundColor: null,
-          useCORS: true,
-          logging: false,
-          scale: 2,
-          width: scaleW,
-          height: scaleH,
-        });
-        scaleCanvasW = scaleCanvas.width;
-        scaleCanvasH = scaleCanvas.height;
-      }
-    }
-
-    const exportCanvas = document.createElement('canvas');
-    exportCanvas.width = width;
-    exportCanvas.height = height;
-    const ctx = exportCanvas.getContext('2d');
-    if (!ctx) return;
-
-    await new Promise<void>((resolve) => {
-      map.once('rendercomplete', () => {
-        ctx.fillStyle = '#fff';
-        ctx.fillRect(0, 0, width, height);
-
-        const canvases = map
-          .getViewport()
-          .querySelectorAll<HTMLCanvasElement>('.ol-layer canvas, canvas');
-
-        canvases.forEach((canvas) => {
-          if (!canvas.width || !canvas.height) return;
-          const opacity = canvas.style.opacity ? Number(canvas.style.opacity) : 1;
-          if (opacity === 0) return;
-
-          const transform = canvas.style.transform || '';
-          const matrix = transform
-            .match(/^matrix\((.+)\)$/)?.[1]
-            .split(',')
-            .map(Number);
-
-          ctx.save();
-          ctx.globalAlpha = opacity;
-          if (matrix && matrix.length === 6) {
-            ctx.setTransform(matrix[0], matrix[1], matrix[2], matrix[3], matrix[4], matrix[5]);
-          } else {
-            ctx.setTransform(1, 0, 0, 1, 0, 0);
-          }
-          ctx.drawImage(canvas, 0, 0);
-          ctx.restore();
-        });
-
-        if (scaleCanvas) {
-          const scaleX = 24;
-          const scaleY = Math.max(height - scaleH - 24, 24);
-          const drawW = scaleW || scaleCanvasW;
-          const drawH = scaleH || scaleCanvasH;
-          ctx.drawImage(scaleCanvas, scaleX, scaleY, drawW, drawH);
-        }
-
-        resolve();
-      });
-
-      map.renderSync();
-    });
-
-    exportCanvas.toBlob((blob) => {
-      if (!blob) return;
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = 'map-export.png';
-      link.click();
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
-    }, 'image/png');
-  };
-
   return (
     <div className="relative w-full h-screen bg-white flex overflow-hidden font-sans">
       {selectedSite && (
         <SiteDetailPanel
           site={selectedSite}
-          onClose={() => setSelectedSite(null)}
+          onClose={clearSelectedSite}
         />
       )}
       
@@ -513,7 +457,7 @@ export default function SiteInformation() {
           </div>
         </div>
         <div className="absolute top-0 left-0 z-20 flex flex-col w-[500px] shadow-2xl overflow-hidden rounded-br-2xl border-r border-b border-white/10">
-          <div className="bg-[#20372a] p-6">
+          <div className="bg-[#3A463D] p-6">
             <h1 className="text-white text-xl font-bold">Site Information</h1>
             <p className="text-[#a1b3ae] text-xs mt-2 leading-relaxed">
               Explore our interactive map for a comprehensive overview of many restoration and conservation sites, showcasing the planet&apos;s rich biodiversity and protected areas.
