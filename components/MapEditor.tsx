@@ -253,8 +253,8 @@ export default function MapEditor() {
         satelliteLabelsLayer
       ],
       view: new View({
-        center: [13139395, -209819],
-        zoom: 5,
+        center: [12942635.99126638, 1315270.1871786504],
+        zoom: 4.861856434034492,
       }),
     });
 
@@ -694,8 +694,8 @@ export default function MapEditor() {
 
         <div className="flex flex-col gap-4 w-full items-center">
           <Link href="/">
-            <div className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-inner cursor-pointer transition-all border ${
-              pathname === '/' ? 'bg-[#062c21] border-white/10' : 'hover:bg-[#062c21]/50 border-transparent text-white/50'
+            <div className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all border ${
+              pathname === '/' ? 'bg-[#062c21] border-white/10 text-[#4ade80]' : 'text-white/40 hover:text-[#4ade80] hover:bg-[#062c21]/50 border-transparent'
             }`}>
               <Layers size={22} />
             </div>
@@ -815,15 +815,14 @@ export default function MapEditor() {
       {/* MAP AREA */}
       <div ref={mapElement} className="flex-1 h-full relative z-10">
         <div className="absolute left-4 bottom-4 z-20 flex flex-col items-start gap-2 text-[12px] text-zinc-700">
-          <div className="flex flex-row">
-            <span className={`mr-[20px] text-[11px] font-semibold text-[18px] ${baseMapType === 'satellite' ? 'text-white' : 'text-black'}`}>
-              Powered by ESRI
-            </span>
-            <div
-              ref={scaleLineRef}
-              className={`map-scale-line relative ${baseMapType === 'satellite' ? 'map-scale-line--dark' : ''}`}
-            />
-          </div>
+          <div
+            ref={scaleLineRef}
+            className={`map-scale-line relative ${baseMapType === 'satellite' ? 'map-scale-line--dark' : ''}`}
+          />
+          <div className="h-4" />
+          <span className={`mr-[20px] text-[11px] font-semibold text-[18px] ${baseMapType === 'satellite' ? 'text-white' : 'text-black'}`}>
+            Powered by ESRI
+          </span>
         </div>
         <div className="absolute right-4 top-24 z-20 flex flex-col items-end gap-2">
           <div className="flex flex-col bg-white rounded-md border border-zinc-200 overflow-hidden">

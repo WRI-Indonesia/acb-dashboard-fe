@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from 'react';
-import html2canvas from 'html2canvas';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import Feature from 'ol/Feature';
+import type Geometry from 'ol/geom/Geometry';
 import { Map, View } from 'ol';
 import TileLayer from 'ol/layer/Tile';
 import OSM from 'ol/source/OSM';
@@ -12,7 +13,7 @@ import GeoJSON from 'ol/format/GeoJSON';
 import Image from 'next/image';
 import { Style, Stroke, Fill } from 'ol/style';
 import { ScaleLine } from 'ol/control';
-import { ChevronDown, ChevronUp, Layers, Map as MapIcon } from 'lucide-react';
+import { Layers, Map as MapIcon } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import SiteDetailPanel from '@/components/SiteDetailPanel';
@@ -92,19 +93,68 @@ export default function SiteInformation() {
   const scaleLineRef = useRef<HTMLDivElement>(null);
   const [geoData, setGeoData] = useState<GeoDataItem[] | null>(null);
   const pathname = usePathname();
-  const [isLegendExpanded, setIsLegendExpanded] = useState(true);
   const [selectedSite, setSelectedSite] = useState<SiteDetailData | null>(null);
   const detailAbortRef = useRef<AbortController | null>(null);
   const [hoverData, setHoverData] = useState<HoverData | null>(null);
   const [pointerPos, setPointerPos] = useState({ x: 0, y: 0 });
   const [baseMapType, setBaseMapType] = useState<BaseMapType>('osm');
   const [showBaseMapMenu, setShowBaseMapMenu] = useState(false);
+  const previousMapViewRef = useRef<{ center: [number, number]; zoom: number; rotation: number } | null>(null);
   const baseLayersRef = useRef<{
     grey: TileLayer<XYZ> | null;
     osm: TileLayer<OSM> | null;
     satellite: TileLayer<XYZ> | null;
     satelliteLabels: TileLayer<XYZ> | null;
   }>({ grey: null, osm: null, satellite: null, satelliteLabels: null });
+
+  const focusToFeature = useCallback((feature: Feature<Geometry>) => {
+    const map = mapRef.current;
+    if (!map || !feature) return;
+
+    const geometry = feature.getGeometry();
+    if (!geometry) return;
+
+    const view = map.getView();
+    if (!previousMapViewRef.current) {
+      const center = view.getCenter();
+      const zoom = view.getZoom();
+      if (center && zoom != null) {
+        previousMapViewRef.current = {
+          center: [center[0], center[1]],
+          zoom,
+          rotation: view.getRotation() ?? 0,
+        };
+      }
+    }
+
+    view.fit(geometry.getExtent(), {
+      padding: [100, 100, 100, 560],
+      duration: 600,
+      maxZoom: 10,
+    });
+  }, []);
+
+  const restorePreviousMapView = useCallback(() => {
+    const map = mapRef.current;
+    const previousView = previousMapViewRef.current;
+    if (!map || !previousView) return;
+
+    map.getView().animate({
+      center: previousView.center,
+      zoom: previousView.zoom,
+      rotation: previousView.rotation,
+      duration: 600,
+    });
+
+    previousMapViewRef.current = null;
+  }, []);
+
+  const clearSelectedSite = useCallback(() => {
+    detailAbortRef.current?.abort();
+    detailAbortRef.current = null;
+    setSelectedSite(null);
+    restorePreviousMapView();
+  }, [restorePreviousMapView]);
 
   useEffect(() => {
     fetch(`${API_BASE_URL}/api/v1/geos/polygon`)
@@ -184,17 +234,17 @@ export default function SiteInformation() {
     }
 
     map.on('click', (e) => {
-      const feature = map.forEachFeatureAtPixel(e.pixel, (f) => f);
+      const feature = map.forEachFeatureAtPixel(e.pixel, (f) => f as Feature<Geometry>);
       if (!feature) {
-        detailAbortRef.current?.abort();
-        detailAbortRef.current = null;
-        setSelectedSite(null);
+        clearSelectedSite();
         return;
       }
 
       const properties = feature.getProperties() as { id?: string | number; name?: string; area?: number };
       const siteId = properties.id;
       if (siteId == null) return;
+
+      focusToFeature(feature);
 
       detailAbortRef.current?.abort();
       const controller = new AbortController();
@@ -209,7 +259,7 @@ export default function SiteInformation() {
         .catch((err) => {
           if (err?.name === 'AbortError') return;
           console.error('Error fetch site detail:', err);
-        });
+        });      
     });
 
     map.on('pointermove', (e) => {
@@ -235,7 +285,7 @@ export default function SiteInformation() {
 
     mapRef.current = map;
     return () => map.setTarget(undefined);
-  }, []);
+  }, [clearSelectedSite, focusToFeature]);
 
   useEffect(() => {
     const grey = baseLayersRef.current.grey;
@@ -290,105 +340,12 @@ export default function SiteInformation() {
     }
   }, [geoData]);
 
-  const handleExportMapAsImage = async () => {
-    const mapArea = mapElement.current;
-    const map = mapRef.current;
-    if (!mapArea || !map) return;
-
-    const width = mapArea.offsetWidth;
-    const height = mapArea.offsetHeight;
-
-    let scaleCanvas: HTMLCanvasElement | null = null;
-    let scaleW = 0;
-    let scaleH = 0;
-    let scaleCanvasW = 0;
-    let scaleCanvasH = 0;
-    if (scaleLineRef.current) {
-      const scaleEl = scaleLineRef.current;
-      scaleW = Math.max(scaleEl.offsetWidth, scaleEl.scrollWidth);
-      scaleH = Math.max(scaleEl.offsetHeight, scaleEl.scrollHeight);
-      if (scaleW > 0 && scaleH > 0) {
-        scaleCanvas = await html2canvas(scaleEl, {
-          backgroundColor: null,
-          useCORS: true,
-          logging: false,
-          scale: 2,
-          width: scaleW,
-          height: scaleH,
-        });
-        scaleCanvasW = scaleCanvas.width;
-        scaleCanvasH = scaleCanvas.height;
-      }
-    }
-
-    const exportCanvas = document.createElement('canvas');
-    exportCanvas.width = width;
-    exportCanvas.height = height;
-    const ctx = exportCanvas.getContext('2d');
-    if (!ctx) return;
-
-    await new Promise<void>((resolve) => {
-      map.once('rendercomplete', () => {
-        ctx.fillStyle = '#fff';
-        ctx.fillRect(0, 0, width, height);
-
-        const canvases = map
-          .getViewport()
-          .querySelectorAll<HTMLCanvasElement>('.ol-layer canvas, canvas');
-
-        canvases.forEach((canvas) => {
-          if (!canvas.width || !canvas.height) return;
-          const opacity = canvas.style.opacity ? Number(canvas.style.opacity) : 1;
-          if (opacity === 0) return;
-
-          const transform = canvas.style.transform || '';
-          const matrix = transform
-            .match(/^matrix\((.+)\)$/)?.[1]
-            .split(',')
-            .map(Number);
-
-          ctx.save();
-          ctx.globalAlpha = opacity;
-          if (matrix && matrix.length === 6) {
-            ctx.setTransform(matrix[0], matrix[1], matrix[2], matrix[3], matrix[4], matrix[5]);
-          } else {
-            ctx.setTransform(1, 0, 0, 1, 0, 0);
-          }
-          ctx.drawImage(canvas, 0, 0);
-          ctx.restore();
-        });
-
-        if (scaleCanvas) {
-          const scaleX = 24;
-          const scaleY = Math.max(height - scaleH - 24, 24);
-          const drawW = scaleW || scaleCanvasW;
-          const drawH = scaleH || scaleCanvasH;
-          ctx.drawImage(scaleCanvas, scaleX, scaleY, drawW, drawH);
-        }
-
-        resolve();
-      });
-
-      map.renderSync();
-    });
-
-    exportCanvas.toBlob((blob) => {
-      if (!blob) return;
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = 'map-export.png';
-      link.click();
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
-    }, 'image/png');
-  };
-
   return (
     <div className="relative w-full h-screen bg-white flex overflow-hidden font-sans">
       {selectedSite && (
         <SiteDetailPanel
           site={selectedSite}
-          onClose={() => setSelectedSite(null)}
+          onClose={clearSelectedSite}
         />
       )}
       
@@ -500,7 +457,7 @@ export default function SiteInformation() {
           </div>
         </div>
         <div className="absolute top-0 left-0 z-20 flex flex-col w-[500px] shadow-2xl overflow-hidden rounded-br-2xl border-r border-b border-white/10">
-          <div className="bg-[#20372a] p-6">
+          <div className="bg-[#3A463D] p-6">
             <h1 className="text-white text-xl font-bold">Site Information</h1>
             <p className="text-[#a1b3ae] text-xs mt-2 leading-relaxed">
               Explore our interactive map for a comprehensive overview of many restoration and conservation sites, showcasing the planet&apos;s rich biodiversity and protected areas.
@@ -561,46 +518,6 @@ export default function SiteInformation() {
           </div>
         </div>
       )}
-
-      {/* DYNAMIC LEGEND */}
-      <div className="absolute bottom-6 right-6 z-10 flex flex-col items-end gap-0 transition-all duration-300">
-        <button 
-          onClick={() => setIsLegendExpanded(!isLegendExpanded)}
-          className="bg-white p-1.5 rounded-t-lg shadow-sm border-x border-t border-zinc-200 text-zinc-800 hover:bg-zinc-50 transition-all flex items-center justify-center w-10 h-8"
-        >
-          {isLegendExpanded ? <ChevronDown size={20} /> : <ChevronUp size={20} />}
-        </button>
-
-          <div className="w-[344px]">
-            <div className="bg-[#3A463D] flex items-center justify-between h-[70px] px-[16px] py-[20px] rounded-tl-xl shadow-2xl">
-              <h3 className="text-[18px] font-semibold text-white tracking-wide">Legend</h3>
-              <button
-                className="bg-[#059669] hover:bg-[#047857] text-white text-[10px] px-[18px] py-[10px] rounded-full transition-colors w-[155px] h-[30px] text-[14px] font-semibold flex items-center justify-center"
-                onClick={handleExportMapAsImage}
-                type="button"
-              >
-                Export as Image
-              </button>
-            </div>
-
-          {isLegendExpanded && (
-            <div className="w-[344px] bg-white shadow-2xl border-zinc-200 overflow-hidden rounded-br-xl animate-in fade-in slide-in-from-bottom-2 duration-200 flex flex-col">
-              <div className="bg-white">
-                <div className="flex flex-col items-center justify-center h-[90px]">
-                  <p className="text-zinc-400 text-[13px] mb-2 font-medium">No layers data is selected</p>
-                  <div className="flex items-center gap-3 text-[#064e3b] font-bold">
-                    <svg width="24" height="16" viewBox="0 0 28 20" fill="none">
-                        <rect x="0.5" y="4.5" width="23" height="11" rx="5.5" fill="white" stroke="#064E3B"/>
-                        <circle cx="7" cy="10" r="3.5" fill="#064E3B"/>
-                    </svg>
-                    <span className="text-[14px]">Activate your layers filter first</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-      </div>
-    </div>
   </div>
   );
 }
