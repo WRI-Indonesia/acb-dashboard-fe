@@ -52,17 +52,17 @@ const SHANNON_DIVERSITY_THRESHOLD = 2.2;
 const Section: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => {
     const [isCollapsed, setIsCollapsed] = useState(false);
     return (
-        <div className="relative bg-[#e3e7c7] pb-6">
-            <button onClick={() => setIsCollapsed(!isCollapsed)} className="w-full flex justify-between items-center p-4 bg-[#e3e7c7]">
-                <h3 className="font-bold text-lg text-[#265F44]">{title}</h3>
+        <div className="relative flex flex-col gap-3 p-5 bg-[#E3E7D7]">
+            <button onClick={() => setIsCollapsed(!isCollapsed)} className="w-full flex justify-between items-center bg-[#E3E7D7]">
+                <h3 className="font-semibold text-2xl text-[#265F44]">{title}</h3>
                 {isCollapsed ? <ChevronDown className="text-[#265F44]" /> : <ChevronUp className="text-[#265F44]"/>}
             </button>
-            {!isCollapsed && <div className="rounded-lg py-0 px-6">{children}</div>}
-
-            <div
-                className="absolute left-4 right-4 h-[2px] bg-[#9fb59f] rounded-lg opacity-80"
-                style={{ bottom: 10, pointerEvents: 'none' }}
-            />
+            {!isCollapsed && (
+                <div className="rounded-lg flex flex-col gap-3">
+                    {children}
+                    <div className="absolute left-4 right-4 bottom-2 h-[1px] bg-[#BAC0A7] rounded-lg opacity-80 pointer-events-none" />
+                </div>
+            )}
         </div>
     );
 };
@@ -75,7 +75,11 @@ const getDeforestationChartOptions = (graphData?: number[]): Highcharts.Options 
     const categories = data.map((_, i) => String(startYear + i));
 
     return {
-        chart: { type: 'column', backgroundColor: '#c8d2c3' },
+        chart: {
+            type: 'column',
+            backgroundColor: '#c8d2c3',
+            spacing: [12, 12, 12, 12],
+        },
         title: { text: '' },
         xAxis: { categories, crosshair: true },
         yAxis: {
@@ -110,24 +114,37 @@ const biodiversityChartOptions = (
     chart: {
         type: 'line',
         backgroundColor: '#C8D2C3',
+        borderRadius: 8,
+        spacing: [12, 12, 12, 12],
     },
     title: {
         text: title,
         align: 'left',
         margin: 18,
-        style: { color: '#265F44', fontWeight: 'bold', fontSize: '18px' }
+        style: {
+            color: '#265F44',
+            fontFamily: '"Acumin Pro Condensed", sans-serif',
+            fontWeight: '600',
+            fontSize: '20px',
+            lineHeight: '20px',
+            letterSpacing: '0px',
+        }
     },
     xAxis: {
         categories: data.map(d => d.year.toString()),
         labels: { style: { color: '#265F44' } },
         lineColor: '#265F44',
         tickColor: '#265F44',
+        gridLineWidth: 1,
+        gridLineColor: '#FFFFFF',
+        gridLineDashStyle: 'Dash',
     },
     yAxis: {
         min: 0,
         title: { text: '', style: { color: '#265F44' } },
         labels: { style: { color: '#265F44' } },
-        gridLineColor: '#b7cbb7',
+        gridLineColor: '#FFFFFF',
+        gridLineDashStyle: 'Dash',
     },
     legend: {
         enabled: true,
@@ -224,138 +241,142 @@ export default function SiteDetailPanel({ site }: SiteDetailPanelProps) {
     };
 
     return (
-        <div className="absolute top-0 left-[70px] w-[500px] h-full bg-[#e3e7c7] z-40 shadow-2xl overflow-y-auto custom-scrollbar-detail">
-            <div className="pt-[48px] pb-[24px] px-[20px] bg-[#3A463D] text-white">
-                <h2 className="text-xl font-bold">Site Information</h2>
-                <p className="text-xs text-white/80 mt-1">
-                    Explore our interactive map for a comprehensive overview of many restoration and conservation sites, showcasing the planet`&apos;`s rich biodiversity and protected areas.
+        <div className="absolute top-0 left-[70px] w-[600px] h-full bg-[#E3E7D7] z-40 shadow-2xl overflow-visible">
+            <div className="h-full overflow-y-auto custom-scrollbar-detail">
+            <div className="pt-12 pb-6 px-5 bg-[#3A463D] text-white">
+                <p className="text-[1.75rem] font-semibold">Site Information</p>
+                <p className="font-['inter'] text-xs text-white font-normal">
+                    Explore our interactive map for a comprehensive overview of many restoration and conservation sites, showcasing the planet&apos;s rich biodiversity and protected areas.
                 </p>
             </div>
 
-            <div className="px-4 py-3 bg-[#c8d2c3]">
-                <h3 className="font-bold text-[15px] text-[#1c3b2e]">
-                    {resolvedSite.ahp_name}
-                </h3>
-                <div className="flex items-center gap-2 text-[12px] text-[#2f5b47] mt-1">
-                    <span>{resolvedSite.country ?? 'Country: -'}</span>
+            <div className="bg-[#c8d2c3] flex flex-col gap-3 p-5">
+                <div>
+                    <p className="font-semibold text-2xl text-[#265F44]">
+                        {resolvedSite.ahp_name}
+                    </p>
+                    <div className="flex items-center text-xl text-[#265F44]">
+                        <span>{resolvedSite.country ?? 'Country: -'}</span>
+                    </div>
                 </div>
-            </div>
 
-            <div className="grid grid-cols-2 gap-0 p-4 bg-[#c8d2c3]">
-                <div className="relative h-44 rounded-l-lg overflow-hidden">
-                    <Image
-                        src="/forest_p1.png"
-                        fill
-                        sizes="(max-width: 640px) 100vw, 240px"
-                        className="object-cover"
-                        alt="Site image 1"
-                    />
-                </div>
-                <div className="relative h-44 rounded-r-lg overflow-hidden">
-                    <Image
-                        src="/forest_p2.png"
-                        fill
-                        sizes="(max-width: 640px) 100vw, 240px"
-                        className="object-cover"
-                        alt="Site image 2"
-                    />
-                </div>
-            </div>
-            
-            <div className="p-4 flex justify-between items-center bg-[#c8d2c3]">
-                <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-2">
-                        <Image
-                            src="/icon_hectare.png"
-                            width={18}
-                            height={18}
-                            alt="Hectare icon"
-                        />
-                        <span className="text-[#265f44]">{Number(Number(resolvedSite.area_ha).toFixed(2)).toLocaleString()} ha</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <Image
-                            src="/icon_restoration.png"
-                            width={18}
-                            height={18}
-                            alt="Restoration icon"
-                        />
-                        <span className="font-semibold text-[#265f44]">{resolvedSite.class_description}</span>
+                <div className="grid grid-cols-1 gap-3">
+                    <div className="flex w-full flex-row">
+                        <div className="relative h-44 flex-1 overflow-hidden rounded-l-lg">
+                            <Image
+                                src="/forest_p1.png"
+                                fill
+                                sizes="(max-width: 640px) 100vw, 264px"
+                                className="object-cover"
+                                alt="Site image 1"
+                            />
+                        </div>
+                        <div className="relative h-44 flex-1 overflow-hidden rounded-r-lg">
+                            <Image
+                                src="/forest_p2.png"
+                                fill
+                                sizes="(max-width: 640px) 100vw, 264px"
+                                className="object-cover"
+                                alt="Site image 2"
+                            />
+                        </div>                        
                     </div>
                 </div>
-                <Share2 className="cursor-pointer bg-[#265F44]" />
+                <div className="flex justify-between items-center">
+                    <div className="flex items-center gap-4">
+                        <div className="flex gap-2">
+                            <Image
+                                src="/icon_hectare.png"
+                                width={18}
+                                height={18}
+                                alt="Hectare icon"
+                            />
+                            <span className="font-['inter'] text-[#265F44] text-base font-semibold">{Number(Number(resolvedSite.area_ha).toFixed(2)).toLocaleString()} ha</span>
+                        </div>
+                        <div className="flex gap-2">
+                            <Image
+                                src="/icon_restoration.png"
+                                width={18}
+                                height={18}
+                                alt="Restoration icon"
+                            />
+                            <span className="font-['inter'] text-[#265F44] text-base font-semibold">{resolvedSite.class_description}</span>
+                        </div>
+                    </div>
+                    <Share2 className="cursor-pointer bg-[#265F44]" />
+                </div>
             </div>
 
             <Section title="Deforestation">
-                <div className="bg-[#c8d2c3] p-4 rounded-lg shadow">
-                    <h4 className="font-semibold mb-2 text-[#265F44]">Deforestation in this project area in the past 10 years</h4>
+                <div className="bg-[#c8d2c3] flex flex-col rounded-lg gap-1 p-3">
+                    <h4 className="font-semibold text-xl text-[#265F44]">Deforestation in this project area in the past 10 years</h4>
                     <HighchartsReact highcharts={Highcharts} options={getDeforestationChartOptions(resolvedSite.deforestation?.graph_data)} />
-                    <div className="mt-4 grid grid-cols-5 gap-4 items-start">
-                        <div className="col-span-2">
-                            {/* Example: show annual value rounded if available */}
-                            <p className="text-2xl font-bold text-[#265F44]">
+                    <div className="flex flex-col gap-3">
+                        <div className="flex flex-row gap-5">
+                            <p className="text-[2rem] text-nowrap font-semibold text-[#265F44]">
                                 {resolvedSite.deforestation.annual ? Number(Number(resolvedSite.deforestation.annual).toFixed(2)).toLocaleString() : '-'} ha/year
                             </p>
-                        </div>
-                        <div className="col-span-3">
-                            <p className="text-[11px] leading-relaxed text-[#5a6b5f]">
+                            <p className="text-xs font-[inter] text-[leading-relaxed text-[#5a6b5f]">
                                 {resolvedSite.deforestation.text}
                             </p>
                         </div>
-                    </div>
-                    <div className="mt-3 rounded-md bg-[#9fb59f] px-3 py-2">
-                        <p className="text-[11px] font-semibold text-[#1f3d2e] text-center">
-                            The selected area has a low average risk of future deforestation.
-                        </p>
+                        <div className="rounded-md bg-[#9BB69B] p-2">
+                            <p className="text-sm font-semibold text-[#265F44] text-center">
+                                The selected area has a low average risk of future deforestation.
+                            </p>
+                        </div>
                     </div>
                 </div>
             </Section>
 
             <Section title="Carbon Emission">
-                <div>
-                    <div className="flex items-center justify-between bg-[#1f5b3f] rounded-lg p-1">
+                <div className="flex flex-col gap-3">
+                    <div className="flex items-center justify-between bg-[#265F44] rounded-lg h-[44px] p-1">
                         {[10, 15, 20].map(year => (
                             <button
                                 key={year}
                                 onClick={() => setActiveTab(year)}
-                                className={`flex-1 py-1.5 text-[11px] font-semibold rounded-md transition-colors ${
+                                className={`flex-1 font-semibold rounded-md transition-colors ${
                                     activeTab === year
-                                        ? 'bg-[#9fb59f] text-[#1f3d2e]'
-                                        : 'text-white/90'
+                                        ? 'bg-[#9BB69B] text-[#265F44] text-xl items-center px-3 py-1'
+                                        : 'text-[#FBFBF9] text-xl items-center'
                                 }`}
                             >
-                                {year} Year
+                                {year} Years
                             </button>
                         ))}
                     </div>
 
-                    <div className="mt-4 bg-[#C8D2C3] rounded-lg overflow-hidden">
-                        <div className="grid grid-cols-5 items-stretch">
-                            <div className="col-span-4 p-3">
-                                <h4 className="font-semibold text-[#265F44] text-[12px]">Potential Avoided Carbon Emission</h4>
-                                <div className="mt-2 grid grid-cols-4 gap-3 items-start">
-                                    <div className="col-span-2">
-                                        <p className="text-2xl font-bold text-[#265F44]">
-                                            {(() => {
-                                                const val = resolvedSite.carbon_emission.potential_avoided.find(p => p.project_duration === activeTab)?.total_co2eq;
-                                                return val !== undefined ? Number(val.toFixed(2)).toLocaleString() : '-';
-                                            })()} ton
-                                        </p>
-                                        <p className="text-[11px] text-[#5a6b5f]">of Carbon emission can be avoided</p>
+                    <div className="bg-[#C8D2C3] rounded-lg overflow-hidden">
+                        <div className="flex items-stretch min-h-[140px]">
+                            <div className="flex flex-col p-3 gap-3">
+                                <p className="font-semibold text-[#265F44] text-xl tracking-tight">
+                                    Potential Avoided Carbon Emission
+                                </p>
+                                <div className="flex flex-row w-[424px] items-center gap-4">
+                                    <div className="flex">
+                                        <div className="flex flex-col w-[162px]">
+                                            <p className="text-[2rem] leading-none font-bold text-[#265F44]">
+                                                {(() => {
+                                                    const val = resolvedSite.carbon_emission.potential_avoided.find(p => p.project_duration === activeTab)?.total_co2eq;
+                                                    return val !== undefined ? Number(val.toFixed(2)).toLocaleString() : '-';
+                                                })()} ton
+                                            </p>
+                                            <p className="mt-2 font-[inter] text-xs leading-snug text-[#265F44]">
+                                                of Carbon emission can be avoided
+                                            </p>
+                                        </div>
                                     </div>
-                                    <div className="col-span-2">
-                                        <p className="text-[10px] leading-relaxed text-[#5a6b5f]">
-                                            The Avoided Deforestation project in this area has the potential to avoid 0 tonnes of CO2eq emissions over the 40 years of project duration
-                                        </p>
-                                    </div>
+                                    <p className="font-[inter] text-xs leading-snug text-[#5B635E] max-w-[320px]">
+                                        The Avoided Deforestation project in this area has the potential to avoid 0 tonnes of CO2eq emissions over the 40 years of project duration
+                                    </p>
                                 </div>
                             </div>
-
-                            <div className="col-span-1 relative min-h-[76px]">
+                            <div className="relative w-[120px] md:w-[126px] shrink-0">
                                 <Image
                                     src="/forest_p3.png"
                                     fill
-                                    sizes="120px"
+                                    sizes="126px"
                                     className="object-cover"
                                     alt="Carbon emission visual"
                                 />
@@ -363,25 +384,27 @@ export default function SiteDetailPanel({ site }: SiteDetailPanelProps) {
                         </div>
                     </div>
 
-                    <div className="mt-3 bg-[#C8D2C3] rounded-lg">
-                        <h4 className="font-semibold text-[#265F44] text-[12px] p-3">Carbon accumulation from natural forest regrowth</h4>
-                        <div className="mt-2 grid grid-cols-5 gap-3 items-start px-3">
-                            <div className="col-span-2">
-                                <p className="text-2xl font-bold text-[#265F44]">
-                                    {(() => {
-                                        const val = resolvedSite.carbon_emission.potential_sequestered.find(p => p.project_duration === activeTab)?.total_co2eq;
-                                        return val !== undefined ? Number(val.toFixed(2)).toLocaleString() : '-';
-                                    })()} ton
-                                </p>
-                                <p className="text-[11px] text-[#5a6b5f]">of CO2eq potentially accumulated</p>
+                    <div className="flex flex-col bg-[#C8D2C3] rounded-lg p-3 gap-3">
+                        <h4 className="font-semibold text-[#265F44] text-xl">Carbon Accumulation from Natural Forest Regrowth</h4>
+                        <div className="flex flex-row gap-4 items-end">
+                            <div className="flex">
+                                <div className="flex flex-col w-[162px]">
+                                    <p className="text-[1.5rem] font-bold text-[#265F44]">
+                                        {(() => {
+                                            const val = resolvedSite.carbon_emission.potential_sequestered.find(p => p.project_duration === activeTab)?.total_co2eq;
+                                            return val !== undefined ? Number(val.toFixed(2)).toLocaleString() : '-';
+                                        })()} ton
+                                    </p>
+                                    <p className="font-[inter] text-xs text-[#265F44]">of CO2eq potentially accumulated</p>
+                                </div>
                             </div>
-                            <div className="col-span-3">
-                                <p className="text-[10px] leading-relaxed text-[#5a6b5f]">
+                            <div className="w-full">
+                                <p className="font-[inter] text-xs text-[#5B635E]">
                                     The ecosystem restoration through natural regeneration project in this area could potentially sequester 104,255.92 tonnes of CO2eq during 40 years of project duration.
                                 </p>
                             </div>
                         </div>
-                        <div className="mt-3 relative h-[10rem] overflow-hidden rounded-b-lg">
+                        <div className="relative h-[10rem] overflow-hidden rounded-b-lg -mx-3 -mb-3">
                             <Image
                                 src="/forest_p1.png"
                                 fill
@@ -424,6 +447,7 @@ export default function SiteDetailPanel({ site }: SiteDetailPanelProps) {
                     />
                 </div>
             </Section>
+            </div>
         </div>
     );
 }

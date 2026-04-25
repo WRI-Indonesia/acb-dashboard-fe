@@ -13,7 +13,7 @@ import GeoJSON from 'ol/format/GeoJSON';
 import Image from 'next/image';
 import { Style, Stroke, Fill } from 'ol/style';
 import { ScaleLine } from 'ol/control';
-import { Layers, Map as MapIcon } from 'lucide-react';
+import { Layers } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import SiteDetailPanel from '@/components/SiteDetailPanel';
@@ -89,6 +89,7 @@ type GeoDataItem = {
 export default function SiteInformation() {
   const mapElement = useRef<HTMLDivElement>(null);
   const mapRef = useRef<Map | null>(null);
+  const hoverPopupRef = useRef<HTMLDivElement>(null);
   const vectorSourceRef = useRef<VectorSource | null>(null);
   const scaleLineRef = useRef<HTMLDivElement>(null);
   const [geoData, setGeoData] = useState<GeoDataItem[] | null>(null);
@@ -97,6 +98,7 @@ export default function SiteInformation() {
   const detailAbortRef = useRef<AbortController | null>(null);
   const [hoverData, setHoverData] = useState<HoverData | null>(null);
   const [pointerPos, setPointerPos] = useState({ x: 0, y: 0 });
+  const [hoverPopupPos, setHoverPopupPos] = useState({ left: 0, top: 0 });
   const [baseMapType, setBaseMapType] = useState<BaseMapType>('osm');
   const [showBaseMapMenu, setShowBaseMapMenu] = useState(false);
   const previousMapViewRef = useRef<{ center: [number, number]; zoom: number; rotation: number } | null>(null);
@@ -340,6 +342,38 @@ export default function SiteInformation() {
     }
   }, [geoData]);
 
+  useEffect(() => {
+    if (!hoverData || !mapElement.current) return;
+
+    const updatePopupPosition = () => {
+      const mapRect = mapElement.current?.getBoundingClientRect();
+      if (!mapRect) return;
+
+      const popupWidth = hoverPopupRef.current?.offsetWidth ?? 280;
+      const popupHeight = hoverPopupRef.current?.offsetHeight ?? 160;
+      const gap = 12;
+
+      let left = mapRect.left + pointerPos.x + gap;
+      let top = mapRect.top + pointerPos.y + gap;
+
+      if (left + popupWidth > window.innerWidth - gap) {
+        left = mapRect.left + pointerPos.x - popupWidth - gap;
+      }
+      if (left < gap) left = gap;
+
+      if (top + popupHeight > window.innerHeight - gap) {
+        top = mapRect.top + pointerPos.y - popupHeight - gap;
+      }
+      if (top < gap) top = gap;
+
+      setHoverPopupPos({ left, top });
+    };
+
+    updatePopupPosition();
+    window.addEventListener('resize', updatePopupPosition);
+    return () => window.removeEventListener('resize', updatePopupPosition);
+  }, [hoverData, pointerPos]);
+
   return (
     <div className="relative w-full h-screen bg-white flex overflow-hidden font-sans">
       {selectedSite && (
@@ -363,17 +397,22 @@ export default function SiteInformation() {
         <div className="flex flex-col gap-4 w-full items-center">
           <Link href="/">
             <div className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all border ${
-              pathname === '/' ? 'bg-[#062c21] border-white/10 text-[#4ade80]' : 'text-white/40 hover:text-[#4ade80] hover:bg-[#062c21]/50 border-transparent'
+              pathname === '/' ? 'bg-[#3A463D] border-white/10 text-[#4ade80]' : 'text-white/40 hover:text-[#4ade80] hover:bg-[#062c21]/50 border-transparent'
             }`}>
               <Layers size={22} />
             </div>
           </Link>
 
           <Link href="/site-information">
-            <div className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all border ${
-              pathname === '/site-information' ? 'bg-[#062c21] border-white/10 text-[#4ade80]' : 'text-white/40 hover:text-[#4ade80] hover:bg-[#062c21]/50 border-transparent'
+            <div className={`w-12 h-12 rounded-lg flex items-center justify-center transition-all ${
+              pathname === '/site-information' ? 'bg-[#3A463D] border-white/10 text-[#4ade80]' : 'text-white/40 hover:text-[#4ade80] hover:bg-[#062c21]/50 border-transparent'
             }`}>
-              <MapIcon size={22} />
+              <Image
+                src="/site-information.svg"
+                alt="Site information"
+                width={22}
+                height={22}
+              />
             </div>
           </Link>
         </div>
@@ -432,52 +471,63 @@ export default function SiteInformation() {
             </button>
 
             {showBaseMapMenu && (
-              <div className="absolute right-0 mt-2 w-40 bg-white border border-zinc-200 rounded-xl shadow-xl overflow-hidden">
+              <div className="absolute right-0 mt-2 w-60 bg-white border border-zinc-200 rounded-xl shadow-xl overflow-hidden">
                 {(
                   [
-                    { id: 'grey', label: 'Grey' },
-                    { id: 'osm', label: 'OSM' },
-                    { id: 'satellite', label: 'Satellite' }
-                  ] as Array<{ id: BaseMapType; label: string }>
+                    { id: 'grey', label: 'Grey', preview: '/gray.png' },
+                    { id: 'osm', label: 'OSM', preview: '/osm.png' },
+                    { id: 'satellite', label: 'Satellite', preview: '/satellite.png' }
+                  ] as Array<{ id: BaseMapType; label: string; preview: string }>
                 ).map((option) => (
                   <button
                     key={option.id}
                     type="button"
-                    className={`w-full px-3 py-2 text-left text-[12px] transition-colors ${baseMapType === option.id ? 'bg-[#e7f2ec] text-[#062c21] font-semibold' : 'text-zinc-700 hover:bg-zinc-100'}`}
+                    className={`w-full px-4 py-3 text-left transition-colors ${baseMapType === option.id ? 'bg-[#e7f2ec] text-[#062c21] font-semibold' : 'text-zinc-700 hover:bg-zinc-100'}`}
                     onClick={() => {
                       setBaseMapType(option.id);
                       setShowBaseMapMenu(false);
                     }}
                   >
-                    {option.label}
+                    <div className="flex items-center gap-3">
+                      <div className="relative w-24 h-16 shrink-0 rounded overflow-hidden border border-zinc-200">
+                        <Image
+                          src={option.preview}
+                          alt={`${option.label} preview`}
+                          fill
+                          sizes="56px"
+                          className="object-cover"
+                        />
+                      </div>
+                      <span className="text-[12px]">{option.label}</span>
+                    </div>
                   </button>
                 ))}
               </div>
             )}
           </div>
         </div>
-        <div className="absolute top-0 left-0 z-20 flex flex-col w-[500px] shadow-2xl overflow-hidden rounded-br-2xl border-r border-b border-white/10">
-          <div className="bg-[#3A463D] p-6">
-            <h1 className="text-white text-xl font-bold">Site Information</h1>
-            <p className="text-[#a1b3ae] text-xs mt-2 leading-relaxed">
+        <div className="absolute top-0 left-0 z-20 flex flex-col w-[600px] shadow-2xl overflow-hidden rounded-br-2xl border-r border-b border-white/10">
+          <div className="pt-12 pb-6 px-5 bg-[#3A463D] text-white flex flex-col gap-2">
+            <p className="text-[#FBFBF9] text-[1.75rem] font-semibold leading-[100%] tracking-[0]">Site Information</p>
+            <p className="font-['inter'] text-[#FBFBF9] text-xs font-regular">
               Explore our interactive map for a comprehensive overview of many restoration and conservation sites, showcasing the planet&apos;s rich biodiversity and protected areas.
             </p>
           </div>
 
-          <div className="bg-[#E3E7D7] py-4 flex flex-col items-center justify-center text-center">
-            <div className="bg-[#d3d8c3] flex flex-col items-center justify-center text-center rounded-lg p-3">
+          <div className="bg-[#E3E7D7] p-5 flex flex-col items-center justify-center text-center">
+            <div className="bg-[#d3d8c3] w-full flex flex-col items-center justify-center text-center rounded-lg p-3">
               <div className="w-10 h-10 bg-[#062c21]/10 rounded-full flex items-center justify-center mb-3">
-                <div className="relative w-8 h-8"> 
+                <div className="relative w-12 h-12"> 
                   <Image 
                     src="/search.png" 
                     alt="Search Icon" 
                     fill
-                    sizes="20px"
+                    sizes="51px"
                     className="object-contain"
                   />
                 </div>
               </div>
-              <h3 className="text-[#062c21] font-bold text-sm">To start analysis, search your area here or select the area on the map</h3>
+              <h3 className="text-[#111A13] font-semibold text-xl">To start analysis, select the area on the map</h3>
             </div>
           </div>
         </div>
@@ -485,10 +535,11 @@ export default function SiteInformation() {
 
       {hoverData && (
         <div 
-          className="absolute z-50 pointer-events-none bg-white rounded-xl shadow-2xl w-[280px] animate-in fade-in zoom-in duration-200 overflow-hidden"
+          ref={hoverPopupRef}
+          className="fixed z-50 pointer-events-none bg-white rounded-xl shadow-2xl w-[280px] animate-in fade-in zoom-in duration-200 overflow-hidden"
           style={{ 
-            left: pointerPos.x + 85, 
-            top: pointerPos.y + 15 
+            left: hoverPopupPos.left,
+            top: hoverPopupPos.top
           }}
         >
           <div className="relative w-full h-40">

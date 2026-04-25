@@ -9,12 +9,12 @@ import XYZ from 'ol/source/XYZ';
 import Image from 'next/image';
 import WMTS from 'ol/source/WMTS';
 import WMTSTileGrid from 'ol/tilegrid/WMTS';
-import { ScaleLine } from 'ol/control';
+import { defaults as defaultControls, ScaleLine } from 'ol/control';
 import { get as getProjection } from 'ol/proj';
 import { getTopLeft, getWidth } from 'ol/extent';
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { ChevronUp, ChevronDown, Map as MapIcon, Layers, GripVertical, Eye, X, Droplet } from 'lucide-react';
+import { ChevronUp, ChevronDown, Layers, GripVertical, Eye, X, Droplet } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
@@ -143,6 +143,7 @@ export default function MapEditor() {
   const [layerVisibility, setLayerVisibility] = useState<Record<number, boolean>>({});
   const [layerOpacity, setLayerOpacity] = useState<Record<number, number>>({});
   const [showOpacitySlider, setShowOpacitySlider] = useState<Record<number, boolean>>({});
+  const [layerSearchText, setLayerSearchText] = useState('');
   const [infoPanelLeft, setInfoPanelLeft] = useState<number>(0);
   const baseLayersRef = useRef<{
     grey: TileLayer<XYZ> | null;
@@ -246,6 +247,7 @@ export default function MapEditor() {
 
     const map = new Map({
       target: mapElement.current,
+      controls: defaultControls({ zoom: false }),
       layers: [
         greyLayer,
         osmLayer,
@@ -253,8 +255,8 @@ export default function MapEditor() {
         satelliteLabelsLayer
       ],
       view: new View({
-        center: [12942635.99126638, 1315270.1871786504],
-        zoom: 4.861856434034492,
+        center: [12822263.927616559, 700859.3957921019],
+        zoom: 5.001605390785985,
       }),
     });
 
@@ -380,6 +382,12 @@ export default function MapEditor() {
   }, [legendOrder, activeStatus]);
 
   const activeLayerConfigs = layerConfigs.filter(c => activeStatus[String(c.id)]);
+  const normalizedLayerSearch = layerSearchText.trim().toLowerCase();
+  const filteredLayerConfigs = layerConfigs.filter((layer) => {
+    if (!normalizedLayerSearch) return true;
+    const target = `${layer.name} ${layer.short_description} ${layer.layers}`.toLowerCase();
+    return target.includes(normalizedLayerSearch);
+  });
   const orderedActiveLayerConfigs = (() => {
     if (legendOrder.length === 0) return activeLayerConfigs;
     const byId = new globalThis.Map<number, LayerConfig>(activeLayerConfigs.map(c => [c.id, c] as const));
@@ -694,18 +702,31 @@ export default function MapEditor() {
 
         <div className="flex flex-col gap-4 w-full items-center">
           <Link href="/">
-            <div className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all border ${
-              pathname === '/' ? 'bg-[#062c21] border-white/10 text-[#4ade80]' : 'text-white/40 hover:text-[#4ade80] hover:bg-[#062c21]/50 border-transparent'
+            <div className={`w-12 h-12 rounded-lg flex items-center justify-center transition-all ${
+              pathname === '/' ? 'bg-[#3A463D]' : 'text-white/40 hover:text-[#4ade80] hover:bg-[#062c21]/50 border-transparent'
             }`}>
               <Layers size={22} />
             </div>
           </Link>
 
           <Link href="/site-information">
-            <div className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-inner cursor-pointer transition-all border ${
-              pathname === '/site-information' ? 'bg-[#062c21] border-white/10 text-white' : 'hover:bg-[#062c21]/50 border-transparent text-white/50'
+            <div className={`group w-12 h-12 rounded-xl flex items-center justify-center shadow-inner cursor-pointer transition-all border ${
+              pathname === '/site-information' ? 'bg-[#3A463D] border-white/10 text-white' : 'hover:bg-[#062c21]/50 border-transparent text-white/50'
             }`}>
-              <MapIcon size={22} />
+              <span
+                aria-hidden="true"
+                className="block w-[22px] h-[22px] bg-[#FFFFFF]/40 transition-colors group-hover:bg-[#4ade80]"
+                style={{
+                  WebkitMaskImage: "url('/site-information.svg')",
+                  maskImage: "url('/site-information.svg')",
+                  WebkitMaskRepeat: 'no-repeat',
+                  maskRepeat: 'no-repeat',
+                  WebkitMaskPosition: 'center',
+                  maskPosition: 'center',
+                  WebkitMaskSize: 'contain',
+                  maskSize: 'contain'
+                }}
+              />
             </div>
           </Link>
         </div>
@@ -723,8 +744,18 @@ export default function MapEditor() {
         </div>
 
         <div className="bg-[#d9e5db] shadow-inner overflow-hidden rounded-br-2xl min-h-0 flex flex-col flex-1">
+          <div className="px-3 pt-3 pb-1 shrink-0">
+            <input
+              type="text"
+              value={layerSearchText}
+              onChange={(e) => setLayerSearchText(e.target.value)}
+              placeholder="Search layers..."
+              className="w-full h-9 rounded-md border border-[#b8c9bc] bg-white/90 px-3 text-[12px] text-[#2b3f35] placeholder:text-[#7f9487] focus:outline-none focus:ring-2 focus:ring-[#20372A]/20"
+            />
+          </div>
+
           <div className="overflow-y-auto px-1 py-3 space-y-0.5 custom-scrollbar-light flex-1">
-            {layerConfigs.map((layer) => (
+            {filteredLayerConfigs.map((layer) => (
               <div 
                 key={layer.id} 
                 className="flex items-center p-4 rounded-lg transition-all group hover:bg-white/20 gap-4 w-full"
@@ -759,58 +790,63 @@ export default function MapEditor() {
               </button>
               </div>
             ))}
+            {filteredLayerConfigs.length === 0 && (
+              <div className="px-4 py-6 text-center text-[12px] text-[#5f7368]">
+                No matching layers found.
+              </div>
+            )}
           </div>
         </div>
         
       </div>
 
-{selectedInfoLayer && (
-  <div 
-    className="absolute w-[300px] max-h-[50vh] bg-white z-[100] border border-black flex flex-col rounded-lg"
-    style={{ 
-      top: `${infoPanelTop}px`,
-      left: `${infoPanelLeft}px`
-    }}
-    ref={infoPanelRef}
-  >
-    <div className="p-4 flex flex-col w-full max-h-[50vh] p-3 overflow-hidden">
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-2">
-          <Image src="/info.svg" alt="Info" width={20} height={20} className="text-zinc-500" />
-          <h2 className="text-[1rem] font-bold text-[#062c21]">Detail Information</h2>
-        </div>
-        <button onClick={() => setSelectedInfoLayer(null)} className="p-1 hover:bg-zinc-100 rounded-full">
-          <X size={16} className="text-zinc-400" />
-        </button>
-      </div>
-      
-      <div className="w-full h-px bg-zinc-100 mb-4" />
+      {selectedInfoLayer && (
+        <div 
+          className="absolute w-[300px] max-h-[50vh] bg-white z-[100] border border-black flex flex-col rounded-lg"
+          style={{ 
+            top: `${infoPanelTop}px`,
+            left: `${infoPanelLeft}px`
+          }}
+          ref={infoPanelRef}
+        >
+          <div className="p-4 flex flex-col w-full max-h-[50vh] p-3 overflow-hidden">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <Image src="/info.svg" alt="Info" width={20} height={20} className="text-zinc-500" />
+                <h2 className="text-[1rem] font-bold text-[#062c21]">Detail Information</h2>
+              </div>
+              <button onClick={() => setSelectedInfoLayer(null)} className="p-1 hover:bg-zinc-100 rounded-full">
+                <X size={16} className="text-zinc-400" />
+              </button>
+            </div>
+            
+            <div className="w-full h-px bg-zinc-100 mb-4" />
 
-      <div className="flex-1 overflow-y-auto pr-1 custom-scrollbar-detail text-[#062c21]">
-        <div className="space-y-4">
-          <p className="text-[12px] leading-relaxed opacity-80 w-[255px]">
-            {selectedInfoLayer.description}
-          </p>
+            <div className="flex-1 overflow-y-auto pr-1 custom-scrollbar-detail text-[#062c21]">
+              <div className="space-y-4">
+                <p className="text-[12px] leading-relaxed opacity-80 w-[255px]">
+                  {selectedInfoLayer.description}
+                </p>
 
-          <div className="grid gap-3">
-             <div>
-               <span className="text-[11px] font-bold uppercase opacity-50 block">Date of Content</span>
-               <span className="text-[12px]">{selectedInfoLayer.content_date || '-'}</span>
-             </div>
-             <div>
-               <span className="text-[11px] font-bold uppercase opacity-50 block">Spatial Resolution</span>
-               <span className="text-[12px]">{selectedInfoLayer.spatial_resolution || '-'}</span>
-             </div>
-             <div>
-               <span className="text-[11px] font-bold uppercase opacity-50 block">Source</span>
-               <span className="text-[12px] font-medium">{selectedInfoLayer.source || '-'}</span>
-             </div>
+                <div className="grid gap-3">
+                  <div>
+                    <span className="text-[11px] font-bold uppercase opacity-50 block">Date of Content</span>
+                    <span className="text-[12px]">{selectedInfoLayer.content_date || '-'}</span>
+                  </div>
+                  <div>
+                    <span className="text-[11px] font-bold uppercase opacity-50 block">Spatial Resolution</span>
+                    <span className="text-[12px]">{selectedInfoLayer.spatial_resolution || '-'}</span>
+                  </div>
+                  <div>
+                    <span className="text-[11px] font-bold uppercase opacity-50 block">Source</span>
+                    <span className="text-[12px] font-medium">{selectedInfoLayer.source || '-'}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
-    </div>
-  </div>
-)}
+      )}
 
       {/* MAP AREA */}
       <div ref={mapElement} className="flex-1 h-full relative z-10">
@@ -834,7 +870,16 @@ export default function MapEditor() {
                 const view = mapRef.current?.getView();
                 if (!view) return;
                 const current = view.getZoom() ?? 0;
-                view.animate({ zoom: current + 1, duration: 250 });
+                const center = view.getCenter();
+                const zoom = current + 1;
+                if (center) {
+                  console.log('Zoom In:', {
+                    x: center[0],
+                    y: center[1],
+                    zoom: zoom
+                  });
+                }
+                view.animate({ zoom, duration: 250 });
               }}
             >
               <Image
@@ -854,7 +899,16 @@ export default function MapEditor() {
                 const view = mapRef.current?.getView();
                 if (!view) return;
                 const current = view.getZoom() ?? 0;
-                view.animate({ zoom: current - 1, duration: 250 });
+                const center = view.getCenter();
+                const zoom = current - 1;
+                if (center) {
+                  console.log('Zoom Out:', {
+                    x: center[0],
+                    y: center[1],
+                    zoom: zoom
+                  });
+                }
+                view.animate({ zoom, duration: 250 });
               }}
             >
               <Image
@@ -878,24 +932,35 @@ export default function MapEditor() {
             </button>
 
             {showBaseMapMenu && (
-              <div className="absolute right-0 mt-2 w-40 bg-white border border-zinc-200 rounded-xl shadow-xl overflow-hidden">
+              <div className="absolute right-0 mt-2 w-60 bg-white border border-zinc-200 rounded-xl shadow-xl overflow-hidden">
                 {(
                   [
-                    { id: 'grey', label: 'Grey' },
-                    { id: 'osm', label: 'OSM' },
-                    { id: 'satellite', label: 'Satellite' }
-                  ] as Array<{ id: BaseMapType; label: string }>
+                    { id: 'grey', label: 'Grey', preview: '/gray.png' },
+                    { id: 'osm', label: 'OSM', preview: '/osm.png' },
+                    { id: 'satellite', label: 'Satellite', preview: '/satellite.png' }
+                  ] as Array<{ id: BaseMapType; label: string; preview: string }>
                 ).map((option) => (
                   <button
                     key={option.id}
                     type="button"
-                    className={`w-full px-3 py-2 text-left text-[12px] transition-colors ${baseMapType === option.id ? 'bg-[#e7f2ec] text-[#062c21] font-semibold' : 'text-zinc-700 hover:bg-zinc-100'}`}
+                    className={`w-full px-4 py-3 text-left transition-colors ${baseMapType === option.id ? 'bg-[#e7f2ec] text-[#062c21] font-semibold' : 'text-zinc-700 hover:bg-zinc-100'}`}
                     onClick={() => {
                       setBaseMapType(option.id);
                       setShowBaseMapMenu(false);
                     }}
                   >
-                    {option.label}
+                    <div className="flex items-center gap-4">
+                      <div className="relative w-24 h-16 shrink-0 rounded-md overflow-hidden border border-zinc-200">
+                        <Image
+                          src={option.preview}
+                          alt={`${option.label} preview`}
+                          fill
+                          sizes="80px"
+                          className="object-cover"
+                        />
+                      </div>
+                      <span className="text-[14px]">{option.label}</span>
+                    </div>
                   </button>
                 ))}
               </div>
@@ -913,32 +978,34 @@ export default function MapEditor() {
             {isLegendExpanded ? <ChevronDown size={20} /> : <ChevronUp size={20} />}
           </button>
 
-          <div className="w-[300px]">
-            <div className="bg-[#3A463D] flex items-center justify-between h-[70px] px-[16px] py-[20px] rounded-tl-xl shadow-2xl">
+          <div className="w-[340px]">
+            <div className="bg-[#3A463D] flex items-center justify-between h-[48px] px-[16px] py-[20px] rounded-tl-xl shadow-2xl">
               <h3 className="text-[18px] font-semibold text-white tracking-wide">Legend</h3>
               <button
-                className="bg-[#059669] hover:bg-[#047857] text-white text-[10px] px-[18px] py-[10px] rounded-full transition-colors w-[155px] h-[30px] text-[14px] font-semibold flex items-center justify-center"
+                className="font-[inter] bg-[#C3D2C3] text-[#515151] text-xs rounded-full transition-colors w-[155px] h-[30px] font-semibold flex items-center justify-center"
                 onClick={handleExportMapAsImage}
                 type="button"
               >
-                Export as Image
+                Export area as Image
               </button>
             </div>
           </div>
 
           {isLegendExpanded && (
-            <div className="w-[300px] bg-white shadow-2xl border-zinc-200 overflow-hidden rounded-br-xl animate-in fade-in slide-in-from-bottom-2 duration-200 flex flex-col">
+            <div className="w-[340px] bg-white shadow-2xl border-zinc-200 overflow-hidden rounded-br-xl animate-in fade-in slide-in-from-bottom-2 duration-200 flex flex-col">
               <div className="bg-white">
                 {activeLayerConfigs.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-[90px]">
-                    <p className="text-zinc-400 text-[12px] mb-2 font-medium">No layers data is selected</p>
-                    <div className="flex items-center gap-3 text-[#064e3b] font-bold">
-                      <svg width="24" height="16" viewBox="0 0 28 20" fill="none">
-                          <rect x="0.5" y="4.5" width="23" height="11" rx="5.5" fill="white" stroke="#064E3B"/>
-                          <circle cx="7" cy="10" r="3.5" fill="#064E3B"/>
-                      </svg>
-                      <span className="text-[14px] font-semibold font-[#111A13]">Activate your layers filter first</span>
+                  <div className="flex flex-col items-center justify-center h-[92px] gap-2">
+                    <div className="relative w-10 h-10"> 
+                      <Image 
+                        src="/search.png" 
+                        alt="Search Icon" 
+                        fill
+                        sizes="51px"
+                        className="object-contain"
+                      />
                     </div>
+                    <p className="font-semibold text-sm text-[#515151]">To see legend, select spatial data layer first</p>
                   </div>
                 ) : (
                   <div className="p-6 max-h-[380px] overflow-y-auto custom-scrollbar">
