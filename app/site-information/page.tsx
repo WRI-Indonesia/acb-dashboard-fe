@@ -13,7 +13,7 @@ import GeoJSON from 'ol/format/GeoJSON';
 import Image from 'next/image';
 import { Style, Stroke, Fill } from 'ol/style';
 import { ScaleLine } from 'ol/control';
-import { Layers, Map as MapIcon } from 'lucide-react';
+import { Layers } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import SiteDetailPanel from '@/components/SiteDetailPanel';
@@ -363,17 +363,22 @@ export default function SiteInformation() {
         <div className="flex flex-col gap-4 w-full items-center">
           <Link href="/">
             <div className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all border ${
-              pathname === '/' ? 'bg-[#062c21] border-white/10 text-[#4ade80]' : 'text-white/40 hover:text-[#4ade80] hover:bg-[#062c21]/50 border-transparent'
+              pathname === '/' ? 'bg-[#3A463D] border-white/10 text-[#4ade80]' : 'text-white/40 hover:text-[#4ade80] hover:bg-[#062c21]/50 border-transparent'
             }`}>
               <Layers size={22} />
             </div>
           </Link>
 
           <Link href="/site-information">
-            <div className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all border ${
-              pathname === '/site-information' ? 'bg-[#062c21] border-white/10 text-[#4ade80]' : 'text-white/40 hover:text-[#4ade80] hover:bg-[#062c21]/50 border-transparent'
+            <div className={`w-12 h-12 rounded-lg flex items-center justify-center transition-all ${
+              pathname === '/site-information' ? 'bg-[#3A463D] border-white/10 text-[#4ade80]' : 'text-white/40 hover:text-[#4ade80] hover:bg-[#062c21]/50 border-transparent'
             }`}>
-              <MapIcon size={22} />
+              <Image
+                src="/site-information.svg"
+                alt="Site information"
+                width={22}
+                height={22}
+              />
             </div>
           </Link>
         </div>
@@ -456,16 +461,16 @@ export default function SiteInformation() {
             )}
           </div>
         </div>
-        <div className="absolute top-0 left-0 z-20 flex flex-col w-[500px] shadow-2xl overflow-hidden rounded-br-2xl border-r border-b border-white/10">
-          <div className="bg-[#3A463D] p-6">
-            <h1 className="text-white text-xl font-bold">Site Information</h1>
-            <p className="text-[#a1b3ae] text-xs mt-2 leading-relaxed">
+        <div className="absolute top-0 left-0 z-20 flex flex-col w-[600px] shadow-2xl overflow-hidden rounded-br-2xl border-r border-b border-white/10">
+          <div className="pt-12 pb-6 px-5 bg-[#3A463D] text-white flex flex-col gap-2">
+            <p className="text-[#FBFBF9] text-[1.75rem] font-semibold leading-[100%] tracking-[0]">Site Information</p>
+            <p className="font-['inter'] text-[#FBFBF9] text-xs font-regular">
               Explore our interactive map for a comprehensive overview of many restoration and conservation sites, showcasing the planet&apos;s rich biodiversity and protected areas.
             </p>
           </div>
 
-          <div className="bg-[#E3E7D7] py-4 flex flex-col items-center justify-center text-center">
-            <div className="bg-[#d3d8c3] flex flex-col items-center justify-center text-center rounded-lg p-3">
+          <div className="bg-[#E3E7D7] p-5 flex flex-col items-center justify-center text-center">
+            <div className="bg-[#d3d8c3] w-full flex flex-col items-center justify-center text-center rounded-lg p-3">
               <div className="w-10 h-10 bg-[#062c21]/10 rounded-full flex items-center justify-center mb-3">
                 <div className="relative w-8 h-8"> 
                   <Image 
@@ -477,7 +482,7 @@ export default function SiteInformation() {
                   />
                 </div>
               </div>
-              <h3 className="text-[#062c21] font-bold text-sm">To start analysis, search your area here or select the area on the map</h3>
+              <h3 className="text-[#111A13] font-semibold text-xl">To start analysis, select the area on the map</h3>
             </div>
           </div>
         </div>

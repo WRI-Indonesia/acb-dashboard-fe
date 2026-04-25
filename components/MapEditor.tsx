@@ -14,7 +14,7 @@ import { get as getProjection } from 'ol/proj';
 import { getTopLeft, getWidth } from 'ol/extent';
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { ChevronUp, ChevronDown, Map as MapIcon, Layers, GripVertical, Eye, X, Droplet } from 'lucide-react';
+import { ChevronUp, ChevronDown, Layers, GripVertical, Eye, X, Droplet } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
@@ -253,8 +253,8 @@ export default function MapEditor() {
         satelliteLabelsLayer
       ],
       view: new View({
-        center: [12942635.99126638, 1315270.1871786504],
-        zoom: 4.861856434034492,
+        center: [12822263.927616559, 700859.3957921019],
+        zoom: 5.001605390785985,
       }),
     });
 
@@ -694,18 +694,31 @@ export default function MapEditor() {
 
         <div className="flex flex-col gap-4 w-full items-center">
           <Link href="/">
-            <div className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all border ${
-              pathname === '/' ? 'bg-[#062c21] border-white/10 text-[#4ade80]' : 'text-white/40 hover:text-[#4ade80] hover:bg-[#062c21]/50 border-transparent'
+            <div className={`w-12 h-12 rounded-lg flex items-center justify-center transition-all ${
+              pathname === '/' ? 'bg-[#3A463D]' : 'text-white/40 hover:text-[#4ade80] hover:bg-[#062c21]/50 border-transparent'
             }`}>
               <Layers size={22} />
             </div>
           </Link>
 
           <Link href="/site-information">
-            <div className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-inner cursor-pointer transition-all border ${
-              pathname === '/site-information' ? 'bg-[#062c21] border-white/10 text-white' : 'hover:bg-[#062c21]/50 border-transparent text-white/50'
+            <div className={`group w-12 h-12 rounded-xl flex items-center justify-center shadow-inner cursor-pointer transition-all border ${
+              pathname === '/site-information' ? 'bg-[#3A463D] border-white/10 text-white' : 'hover:bg-[#062c21]/50 border-transparent text-white/50'
             }`}>
-              <MapIcon size={22} />
+              <span
+                aria-hidden="true"
+                className="block w-[22px] h-[22px] bg-[#FFFFFF]/40 transition-colors group-hover:bg-[#4ade80]"
+                style={{
+                  WebkitMaskImage: "url('/site-information.svg')",
+                  maskImage: "url('/site-information.svg')",
+                  WebkitMaskRepeat: 'no-repeat',
+                  maskRepeat: 'no-repeat',
+                  WebkitMaskPosition: 'center',
+                  maskPosition: 'center',
+                  WebkitMaskSize: 'contain',
+                  maskSize: 'contain'
+                }}
+              />
             </div>
           </Link>
         </div>
@@ -764,53 +777,53 @@ export default function MapEditor() {
         
       </div>
 
-{selectedInfoLayer && (
-  <div 
-    className="absolute w-[300px] max-h-[50vh] bg-white z-[100] border border-black flex flex-col rounded-lg"
-    style={{ 
-      top: `${infoPanelTop}px`,
-      left: `${infoPanelLeft}px`
-    }}
-    ref={infoPanelRef}
-  >
-    <div className="p-4 flex flex-col w-full max-h-[50vh] p-3 overflow-hidden">
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-2">
-          <Image src="/info.svg" alt="Info" width={20} height={20} className="text-zinc-500" />
-          <h2 className="text-[1rem] font-bold text-[#062c21]">Detail Information</h2>
-        </div>
-        <button onClick={() => setSelectedInfoLayer(null)} className="p-1 hover:bg-zinc-100 rounded-full">
-          <X size={16} className="text-zinc-400" />
-        </button>
-      </div>
-      
-      <div className="w-full h-px bg-zinc-100 mb-4" />
+      {selectedInfoLayer && (
+        <div 
+          className="absolute w-[300px] max-h-[50vh] bg-white z-[100] border border-black flex flex-col rounded-lg"
+          style={{ 
+            top: `${infoPanelTop}px`,
+            left: `${infoPanelLeft}px`
+          }}
+          ref={infoPanelRef}
+        >
+          <div className="p-4 flex flex-col w-full max-h-[50vh] p-3 overflow-hidden">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <Image src="/info.svg" alt="Info" width={20} height={20} className="text-zinc-500" />
+                <h2 className="text-[1rem] font-bold text-[#062c21]">Detail Information</h2>
+              </div>
+              <button onClick={() => setSelectedInfoLayer(null)} className="p-1 hover:bg-zinc-100 rounded-full">
+                <X size={16} className="text-zinc-400" />
+              </button>
+            </div>
+            
+            <div className="w-full h-px bg-zinc-100 mb-4" />
 
-      <div className="flex-1 overflow-y-auto pr-1 custom-scrollbar-detail text-[#062c21]">
-        <div className="space-y-4">
-          <p className="text-[12px] leading-relaxed opacity-80 w-[255px]">
-            {selectedInfoLayer.description}
-          </p>
+            <div className="flex-1 overflow-y-auto pr-1 custom-scrollbar-detail text-[#062c21]">
+              <div className="space-y-4">
+                <p className="text-[12px] leading-relaxed opacity-80 w-[255px]">
+                  {selectedInfoLayer.description}
+                </p>
 
-          <div className="grid gap-3">
-             <div>
-               <span className="text-[11px] font-bold uppercase opacity-50 block">Date of Content</span>
-               <span className="text-[12px]">{selectedInfoLayer.content_date || '-'}</span>
-             </div>
-             <div>
-               <span className="text-[11px] font-bold uppercase opacity-50 block">Spatial Resolution</span>
-               <span className="text-[12px]">{selectedInfoLayer.spatial_resolution || '-'}</span>
-             </div>
-             <div>
-               <span className="text-[11px] font-bold uppercase opacity-50 block">Source</span>
-               <span className="text-[12px] font-medium">{selectedInfoLayer.source || '-'}</span>
-             </div>
+                <div className="grid gap-3">
+                  <div>
+                    <span className="text-[11px] font-bold uppercase opacity-50 block">Date of Content</span>
+                    <span className="text-[12px]">{selectedInfoLayer.content_date || '-'}</span>
+                  </div>
+                  <div>
+                    <span className="text-[11px] font-bold uppercase opacity-50 block">Spatial Resolution</span>
+                    <span className="text-[12px]">{selectedInfoLayer.spatial_resolution || '-'}</span>
+                  </div>
+                  <div>
+                    <span className="text-[11px] font-bold uppercase opacity-50 block">Source</span>
+                    <span className="text-[12px] font-medium">{selectedInfoLayer.source || '-'}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
-    </div>
-  </div>
-)}
+      )}
 
       {/* MAP AREA */}
       <div ref={mapElement} className="flex-1 h-full relative z-10">
@@ -834,7 +847,16 @@ export default function MapEditor() {
                 const view = mapRef.current?.getView();
                 if (!view) return;
                 const current = view.getZoom() ?? 0;
-                view.animate({ zoom: current + 1, duration: 250 });
+                const center = view.getCenter();
+                const zoom = current + 1;
+                if (center) {
+                  console.log('Zoom In:', {
+                    x: center[0],
+                    y: center[1],
+                    zoom: zoom
+                  });
+                }
+                view.animate({ zoom, duration: 250 });
               }}
             >
               <Image
@@ -854,7 +876,16 @@ export default function MapEditor() {
                 const view = mapRef.current?.getView();
                 if (!view) return;
                 const current = view.getZoom() ?? 0;
-                view.animate({ zoom: current - 1, duration: 250 });
+                const center = view.getCenter();
+                const zoom = current - 1;
+                if (center) {
+                  console.log('Zoom Out:', {
+                    x: center[0],
+                    y: center[1],
+                    zoom: zoom
+                  });
+                }
+                view.animate({ zoom, duration: 250 });
               }}
             >
               <Image
