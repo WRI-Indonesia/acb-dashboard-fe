@@ -9,7 +9,7 @@ import XYZ from 'ol/source/XYZ';
 import Image from 'next/image';
 import WMTS from 'ol/source/WMTS';
 import WMTSTileGrid from 'ol/tilegrid/WMTS';
-import { ScaleLine } from 'ol/control';
+import { defaults as defaultControls, ScaleLine } from 'ol/control';
 import { get as getProjection } from 'ol/proj';
 import { getTopLeft, getWidth } from 'ol/extent';
 import { Label } from "@/components/ui/label";
@@ -143,6 +143,7 @@ export default function MapEditor() {
   const [layerVisibility, setLayerVisibility] = useState<Record<number, boolean>>({});
   const [layerOpacity, setLayerOpacity] = useState<Record<number, number>>({});
   const [showOpacitySlider, setShowOpacitySlider] = useState<Record<number, boolean>>({});
+  const [layerSearchText, setLayerSearchText] = useState('');
   const [infoPanelLeft, setInfoPanelLeft] = useState<number>(0);
   const baseLayersRef = useRef<{
     grey: TileLayer<XYZ> | null;
@@ -246,6 +247,7 @@ export default function MapEditor() {
 
     const map = new Map({
       target: mapElement.current,
+      controls: defaultControls({ zoom: false }),
       layers: [
         greyLayer,
         osmLayer,
@@ -380,6 +382,12 @@ export default function MapEditor() {
   }, [legendOrder, activeStatus]);
 
   const activeLayerConfigs = layerConfigs.filter(c => activeStatus[String(c.id)]);
+  const normalizedLayerSearch = layerSearchText.trim().toLowerCase();
+  const filteredLayerConfigs = layerConfigs.filter((layer) => {
+    if (!normalizedLayerSearch) return true;
+    const target = `${layer.name} ${layer.short_description} ${layer.layers}`.toLowerCase();
+    return target.includes(normalizedLayerSearch);
+  });
   const orderedActiveLayerConfigs = (() => {
     if (legendOrder.length === 0) return activeLayerConfigs;
     const byId = new globalThis.Map<number, LayerConfig>(activeLayerConfigs.map(c => [c.id, c] as const));
@@ -736,8 +744,18 @@ export default function MapEditor() {
         </div>
 
         <div className="bg-[#d9e5db] shadow-inner overflow-hidden rounded-br-2xl min-h-0 flex flex-col flex-1">
+          <div className="px-3 pt-3 pb-1 shrink-0">
+            <input
+              type="text"
+              value={layerSearchText}
+              onChange={(e) => setLayerSearchText(e.target.value)}
+              placeholder="Search layers..."
+              className="w-full h-9 rounded-md border border-[#b8c9bc] bg-white/90 px-3 text-[12px] text-[#2b3f35] placeholder:text-[#7f9487] focus:outline-none focus:ring-2 focus:ring-[#20372A]/20"
+            />
+          </div>
+
           <div className="overflow-y-auto px-1 py-3 space-y-0.5 custom-scrollbar-light flex-1">
-            {layerConfigs.map((layer) => (
+            {filteredLayerConfigs.map((layer) => (
               <div 
                 key={layer.id} 
                 className="flex items-center p-4 rounded-lg transition-all group hover:bg-white/20 gap-4 w-full"
@@ -772,6 +790,11 @@ export default function MapEditor() {
               </button>
               </div>
             ))}
+            {filteredLayerConfigs.length === 0 && (
+              <div className="px-4 py-6 text-center text-[12px] text-[#5f7368]">
+                No matching layers found.
+              </div>
+            )}
           </div>
         </div>
         
@@ -909,24 +932,35 @@ export default function MapEditor() {
             </button>
 
             {showBaseMapMenu && (
-              <div className="absolute right-0 mt-2 w-40 bg-white border border-zinc-200 rounded-xl shadow-xl overflow-hidden">
+              <div className="absolute right-0 mt-2 w-60 bg-white border border-zinc-200 rounded-xl shadow-xl overflow-hidden">
                 {(
                   [
-                    { id: 'grey', label: 'Grey' },
-                    { id: 'osm', label: 'OSM' },
-                    { id: 'satellite', label: 'Satellite' }
-                  ] as Array<{ id: BaseMapType; label: string }>
+                    { id: 'grey', label: 'Grey', preview: '/gray.png' },
+                    { id: 'osm', label: 'OSM', preview: '/osm.png' },
+                    { id: 'satellite', label: 'Satellite', preview: '/satellite.png' }
+                  ] as Array<{ id: BaseMapType; label: string; preview: string }>
                 ).map((option) => (
                   <button
                     key={option.id}
                     type="button"
-                    className={`w-full px-3 py-2 text-left text-[12px] transition-colors ${baseMapType === option.id ? 'bg-[#e7f2ec] text-[#062c21] font-semibold' : 'text-zinc-700 hover:bg-zinc-100'}`}
+                    className={`w-full px-4 py-3 text-left transition-colors ${baseMapType === option.id ? 'bg-[#e7f2ec] text-[#062c21] font-semibold' : 'text-zinc-700 hover:bg-zinc-100'}`}
                     onClick={() => {
                       setBaseMapType(option.id);
                       setShowBaseMapMenu(false);
                     }}
                   >
-                    {option.label}
+                    <div className="flex items-center gap-4">
+                      <div className="relative w-24 h-16 shrink-0 rounded-md overflow-hidden border border-zinc-200">
+                        <Image
+                          src={option.preview}
+                          alt={`${option.label} preview`}
+                          fill
+                          sizes="80px"
+                          className="object-cover"
+                        />
+                      </div>
+                      <span className="text-[14px]">{option.label}</span>
+                    </div>
                   </button>
                 ))}
               </div>

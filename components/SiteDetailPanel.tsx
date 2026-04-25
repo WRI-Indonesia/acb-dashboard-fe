@@ -241,8 +241,8 @@ export default function SiteDetailPanel({ site }: SiteDetailPanelProps) {
     };
 
     return (
-        <div className="absolute top-0 left-[70px] w-[600px] h-full bg-[#e3e7c7] z-40 shadow-2xl overflow-visible">
-            <div className="h-full overflow-y-auto custom-scrollbar-detail -mr-3">
+        <div className="absolute top-0 left-[70px] w-[600px] h-full bg-[#E3E7D7] z-40 shadow-2xl overflow-visible">
+            <div className="h-full overflow-y-auto custom-scrollbar-detail">
             <div className="pt-12 pb-6 px-5 bg-[#3A463D] text-white">
                 <p className="text-[1.75rem] font-semibold">Site Information</p>
                 <p className="font-['inter'] text-xs text-white font-normal">
