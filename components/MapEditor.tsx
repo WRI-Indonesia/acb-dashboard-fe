@@ -978,32 +978,34 @@ export default function MapEditor() {
             {isLegendExpanded ? <ChevronDown size={20} /> : <ChevronUp size={20} />}
           </button>
 
-          <div className="w-[300px]">
-            <div className="bg-[#3A463D] flex items-center justify-between h-[70px] px-[16px] py-[20px] rounded-tl-xl shadow-2xl">
+          <div className="w-[340px]">
+            <div className="bg-[#3A463D] flex items-center justify-between h-[48px] px-[16px] py-[20px] rounded-tl-xl shadow-2xl">
               <h3 className="text-[18px] font-semibold text-white tracking-wide">Legend</h3>
               <button
-                className="bg-[#059669] hover:bg-[#047857] text-white text-[10px] px-[18px] py-[10px] rounded-full transition-colors w-[155px] h-[30px] text-[14px] font-semibold flex items-center justify-center"
+                className="font-[inter] bg-[#C3D2C3] text-[#515151] text-xs rounded-full transition-colors w-[155px] h-[30px] font-semibold flex items-center justify-center"
                 onClick={handleExportMapAsImage}
                 type="button"
               >
-                Export as Image
+                Export area as Image
               </button>
             </div>
           </div>
 
           {isLegendExpanded && (
-            <div className="w-[300px] bg-white shadow-2xl border-zinc-200 overflow-hidden rounded-br-xl animate-in fade-in slide-in-from-bottom-2 duration-200 flex flex-col">
+            <div className="w-[340px] bg-white shadow-2xl border-zinc-200 overflow-hidden rounded-br-xl animate-in fade-in slide-in-from-bottom-2 duration-200 flex flex-col">
               <div className="bg-white">
                 {activeLayerConfigs.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-[90px]">
-                    <p className="text-zinc-400 text-[12px] mb-2 font-medium">No layers data is selected</p>
-                    <div className="flex items-center gap-3 text-[#064e3b] font-bold">
-                      <svg width="24" height="16" viewBox="0 0 28 20" fill="none">
-                          <rect x="0.5" y="4.5" width="23" height="11" rx="5.5" fill="white" stroke="#064E3B"/>
-                          <circle cx="7" cy="10" r="3.5" fill="#064E3B"/>
-                      </svg>
-                      <span className="text-[14px] font-semibold font-[#111A13]">Activate your layers filter first</span>
+                  <div className="flex flex-col items-center justify-center h-[92px] gap-2">
+                    <div className="relative w-10 h-10"> 
+                      <Image 
+                        src="/search.png" 
+                        alt="Search Icon" 
+                        fill
+                        sizes="51px"
+                        className="object-contain"
+                      />
                     </div>
+                    <p className="font-semibold text-sm text-[#515151]">To see legend, select spatial data layer first</p>
                   </div>
                 ) : (
                   <div className="p-6 max-h-[380px] overflow-y-auto custom-scrollbar">
