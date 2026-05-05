@@ -91,7 +91,7 @@ const getDeforestationChartOptions = (graphData?: number[]): Highcharts.Options 
             showInLegend: false,
             type: 'column',
             data: data.map(v => Number((Number(v) * 100).toFixed(2))),
-            color: '#d9534f',
+            color: '#FF581D',
             borderWidth: 0
         }],
         credits: { enabled: false }
@@ -330,7 +330,7 @@ export default function SiteDetailPanel({ site }: SiteDetailPanelProps) {
             </Section>
 
             <Section title="Carbon Emission">
-                <div className="flex flex-col gap-3">
+                <div className="flex flex-col gap-3 bg-[#c8d2c3]">
                     <div className="flex items-center justify-between bg-[#FF581D] rounded-lg h-[44px] p-1">
                         {[10, 15, 20].map(year => (
                             <button
@@ -418,7 +418,7 @@ export default function SiteDetailPanel({ site }: SiteDetailPanelProps) {
             </Section>
 
             <Section title="Biodiversity Index Analysis">
-                <div>
+                <div className="bg-[#c8d2c3]">
                     <HighchartsReact
                         highcharts={Highcharts}
                         options={biodiversityChartOptions(
