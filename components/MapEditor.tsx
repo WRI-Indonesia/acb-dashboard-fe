@@ -703,7 +703,7 @@ export default function MapEditor() {
         <div className="flex flex-col gap-4 w-full items-center">
           <Link href="/">
             <div className={`w-12 h-12 rounded-lg flex items-center justify-center transition-all ${
-              pathname === '/' ? 'bg-[#3A463D]' : 'text-white/40 hover:text-[#4ade80] hover:bg-[#062c21]/50 border-transparent'
+              pathname === '/' ? 'bg-[#3A463D] text-white' : 'text-white/40 hover:text-[#4ade80] hover:bg-[#062c21]/50 border-transparent'
             }`}>
               <Layers size={22} />
             </div>
@@ -733,7 +733,7 @@ export default function MapEditor() {
       </div>
 
       {/* LAYER PANEL (ABSOLUTE) */}
-      <div className="absolute left-[70px] top-0 w-[310px] bg-[#20372A] flex flex-col h-auto max-h-screen [@media(max-height:840px)]:max-h-[80vh] z-20 rounded-br-2xl">
+      <div className="absolute left-[70px] top-0 w-[310px] bg-[#3A463D] flex flex-col h-auto max-h-screen [@media(max-height:840px)]:max-h-[80vh] z-20 rounded-br-2xl">
         <div className="p-3 pt-[48px] pr-[20px] pb-[24px] pl-[20px] shrink-0">
           <h1 className="text-xl font-medium text-[24px] text-white tracking-tight leading-tight">
             Data Spatial Layer
