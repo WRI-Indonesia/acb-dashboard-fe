@@ -763,7 +763,7 @@ export default function MapEditor() {
                 <Switch 
                   checked={activeStatus[layer.id] || false}
                   onCheckedChange={(val) => setActiveStatus(prev => ({...prev, [layer.id]: val}))}
-                  className="data-[state=checked]:bg-[#20372A] data-[state=unchecked]:bg-[#ffffff]/60 shrink-0"
+                  className="data-[state=checked]:bg-[#FF581D] data-[state=unchecked]:bg-[#ffffff]/60 shrink-0 data-[state=unchecked]:border-[#FECDBC] data-[state=checked]:border-[#B12E00]"
                 />
                 <div className="flex flex-col flex-1 min-w-0 pr-2">
                   <Label className="text-[16px] font-medium leading-tight cursor-pointer text-[#4C3838] truncate block w-full">
