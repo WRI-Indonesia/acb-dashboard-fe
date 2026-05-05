@@ -303,7 +303,7 @@ export default function SiteDetailPanel({ site }: SiteDetailPanelProps) {
                             <span className="font-['inter'] text-[#265F44] text-base font-semibold">{resolvedSite.class_description}</span>
                         </div>
                     </div>
-                    <Share2 className="cursor-pointer bg-[#265F44]" />
+                    <Share2 className="cursor-pointer bg-[#FF581D] p-[2px] rounded-sm" />
                 </div>
             </div>
 
