@@ -17,7 +17,8 @@ const siteDetailData: SiteDetailData = {
         change: "134.1",
         graph_data: [0.1278, 0.7254, 0.1584, 0.5067, 0.3663, 0.0306, 1.71, 1.3383, 1.2519, 0.0207, 0.5904],
         pct: -0.92,
-        text: "This project location has experienced forest loss of up to 134.1 ha in the past 10 years, with the annual historical rate of deforestation of -0.92% (-13.41 ha/year)"
+        text: "This project location has experienced forest loss of up to 134.1 ha in the past 10 years, with the annual historical rate of deforestation of -0.92% (-13.41 ha/year)",
+        risk_text: "The selected area has a high average risk of future deforestation."
     },
     carbon_emission: {
         potential_avoided: [
@@ -442,7 +443,7 @@ export default function SiteDetailPanel({ site }: SiteDetailPanelProps) {
                             <span className="font-['inter'] text-[#265F44] text-base font-semibold">{resolvedSite.class_description}</span>
                         </div>
                     </div>
-                    <Share2 className="cursor-pointer bg-[#FF581D] p-[2px] rounded-sm" />
+                    {/* <Share2 className="cursor-pointer bg-[#FF581D] p-[2px] rounded-sm" /> */}
                 </div>
             </div>
 
@@ -461,7 +462,7 @@ export default function SiteDetailPanel({ site }: SiteDetailPanelProps) {
                         </div>
                         <div className="rounded-md bg-[#9BB69B] p-2">
                             <p className="text-sm font-semibold text-[#265F44] text-center">
-                                The selected area has a low average risk of future deforestation.
+                                {deforestation?.risk_text}
                             </p>
                         </div>
                     </div>
