@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { SiteDetailData, BiodiversityIndexData, SiteImage } from '../types/site';
 import Image from 'next/image';
-import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Share2 } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, X } from 'lucide-react';
 import Highcharts from 'highcharts';
 import HighchartsReact from 'highcharts-react-official';
 
@@ -80,15 +80,190 @@ const buildImageSrc = (image?: SiteImage | null) => {
     return `data:${mimeType};base64,${image.image_base64}`;
 };
 
+const SECTION_INFO_PARAGRAPH =
+    "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.\
+     Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.\
+     Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.\
+     Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.\
+     Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.";
+const SECTION_INFO_FIELDS = [
+    {
+        label: 'Overview',
+        value: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit.'
+    },
+    {
+        label: 'Method',
+        value: 'Lorem ipsum dolor sit amet, sed do eiusmod tempor incididunt.'
+    },
+    {
+        label: 'Notes',
+        value: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do.'
+    }
+];
+
 
 const Section: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => {
     const [isCollapsed, setIsCollapsed] = useState(false);
+    const [isInfoOpen, setIsInfoOpen] = useState(false);
+    const infoPanelRef = useRef<HTMLDivElement>(null);
+    const infoButtonRef = useRef<HTMLButtonElement>(null);
+    const [infoPanelTop, setInfoPanelTop] = useState(0);
+    const [infoPanelLeft, setInfoPanelLeft] = useState(0);
+    const [infoPanelAnchor, setInfoPanelAnchor] = useState<DOMRect | null>(null);
+
+    const toggleCollapse = () => {
+        setIsCollapsed((prev) => !prev);
+        setIsInfoOpen(false);
+    };
+
+    useLayoutEffect(() => {
+        if (!isInfoOpen || !infoPanelAnchor) return;
+
+        const padding = 12;
+        const viewportW = window.innerWidth;
+        const viewportH = window.innerHeight;
+        const panelWidth = infoPanelRef.current?.offsetWidth ?? 380;
+        const panelHeight = infoPanelRef.current?.offsetHeight ?? Math.min(500, Math.floor(viewportH * 0.6));
+        const detailPanel = document.querySelector('[data-site-detail-panel="true"]') as HTMLElement | null;
+        const detailPanelRect = detailPanel?.getBoundingClientRect() ?? null;
+
+        let left = infoPanelAnchor.right + 12;
+        if (detailPanelRect && left < detailPanelRect.right + 12) {
+            left = detailPanelRect.right + 12;
+        }
+        if (left + panelWidth > viewportW - padding && detailPanelRect) {
+            left = detailPanelRect.left - panelWidth - 12;
+        }
+        if (left + panelWidth > viewportW - padding) {
+            left = infoPanelAnchor.left - panelWidth - 12;
+        }
+        if (left < padding) left = padding;
+
+        let top = infoPanelAnchor.top;
+        if (top + panelHeight > viewportH - padding) {
+            top = viewportH - panelHeight - padding;
+        }
+        if (top < padding) top = padding;
+
+        setInfoPanelTop(top);
+        setInfoPanelLeft(left);
+    }, [isInfoOpen, infoPanelAnchor]);
+
+    useEffect(() => {
+        if (!isInfoOpen) return;
+
+        const handleOutsideClick = (event: MouseEvent) => {
+            const target = event.target as HTMLElement | null;
+            if (!target) return;
+            if (infoPanelRef.current?.contains(target)) return;
+            if (infoButtonRef.current?.contains(target)) return;
+            setIsInfoOpen(false);
+        };
+
+        const handleScroll = () => {
+            if (infoButtonRef.current) {
+                setInfoPanelAnchor(infoButtonRef.current.getBoundingClientRect());
+            }
+        };
+
+        const detailPanel = document.querySelector('[data-site-detail-panel="true"]');
+        if (detailPanel) {
+            detailPanel.addEventListener('scroll', handleScroll, { passive: true });
+        }
+        window.addEventListener('scroll', handleScroll, { passive: true });
+
+        document.addEventListener('click', handleOutsideClick);
+
+        return () => {
+            document.removeEventListener('click', handleOutsideClick);
+            if (detailPanel) {
+                detailPanel.removeEventListener('scroll', handleScroll);
+            }
+            window.removeEventListener('scroll', handleScroll);
+        };
+    }, [isInfoOpen]);
+
     return (
         <div className="relative flex flex-col gap-3 p-5 bg-[#E3E7D7]">
-            <button onClick={() => setIsCollapsed(!isCollapsed)} className="w-full flex justify-between items-center bg-[#E3E7D7]">
-                <h3 className="font-semibold text-2xl text-[#FF581D]">{title}</h3>
-                {isCollapsed ? <ChevronDown className="text-[#265F44]" /> : <ChevronUp className="text-[#265F44]"/>}
-            </button>
+            <div className="w-full flex justify-between items-center bg-[#E3E7D7]">
+                <div className="flex items-center gap-2">
+                    <button type="button" onClick={toggleCollapse} className="flex items-center">
+                        <h3 className="font-semibold text-2xl text-[#FF581D]">{title}</h3>
+                    </button>
+                    <button
+                        type="button"
+                        className="shrink-0 p-1 hover:bg-white/10 rounded-full transition-colors"
+                        aria-label={`Info ${title}`}
+                        aria-expanded={isInfoOpen}
+                        onClick={(event) => {
+                            event.stopPropagation();
+                            const nextOpen = !isInfoOpen;
+                            if (nextOpen && infoButtonRef.current) {
+                                setInfoPanelAnchor(infoButtonRef.current.getBoundingClientRect());
+                            }
+                            setIsInfoOpen(nextOpen);
+                        }}
+                        ref={infoButtonRef}
+                    >
+                        <Image
+                            src="/info.svg"
+                            alt="Info"
+                            width={18}
+                            height={18}
+                            className="text-[#062c21]/40"
+                        />
+                    </button>
+                </div>
+                <button type="button" onClick={toggleCollapse} className="p-1">
+                    {isCollapsed ? <ChevronDown className="text-[#265F44]" /> : <ChevronUp className="text-[#265F44]" />}
+                </button>
+            </div>
+            {isInfoOpen && (
+                <div
+                    className="fixed w-[380px] max-h-[60vh] bg-white z-[100] border border-black flex flex-col rounded-lg"
+                    style={{
+                        top: `${infoPanelTop}px`,
+                        left: `${infoPanelLeft}px`
+                    }}
+                    ref={infoPanelRef}
+                >
+                    <div className="p-4 flex flex-col w-full max-h-[60vh] p-4 overflow-hidden">
+                        <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                                <Image src="/info.svg" alt="Info" width={20} height={20} className="text-zinc-500" />
+                                <h4 className="text-[1rem] font-bold text-[#062c21]">Detail Information</h4>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setIsInfoOpen(false)}
+                                className="p-1 hover:bg-zinc-100 rounded-full"
+                                aria-label={`Close info ${title}`}
+                            >
+                                <X size={16} className="text-zinc-400" />
+                            </button>
+                        </div>
+
+                        <div className="w-full h-px bg-zinc-100 mb-4" />
+
+                        <div className="flex-1 overflow-y-auto pr-1 custom-scrollbar-detail text-[#062c21]">
+                            <div className="space-y-4">
+                                <p className="text-[12px] leading-relaxed opacity-80 w-full">
+                                    {SECTION_INFO_PARAGRAPH}
+                                </p>
+
+                                <div className="grid gap-3">
+                                    {SECTION_INFO_FIELDS.map((field) => (
+                                        <div key={field.label}>
+                                            <span className="text-[11px] font-bold uppercase opacity-50 block">{field.label}</span>
+                                            <span className="text-[12px]">{field.value}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
             {!isCollapsed && (
                 <div className="rounded-lg flex flex-col gap-3">
                     {children}
@@ -320,7 +495,7 @@ export default function SiteDetailPanel({ site }: SiteDetailPanelProps) {
     const showSingleImage = siteImages.length === 1;
 
     return (
-        <div className="absolute top-0 left-[70px] w-[600px] h-full bg-[#E3E7D7] z-40 shadow-2xl overflow-visible">
+        <div className="absolute top-0 left-[70px] w-[600px] h-full bg-[#E3E7D7] z-40 shadow-2xl overflow-visible" data-site-detail-panel="true">
             <div className="h-full overflow-y-auto custom-scrollbar-detail">
             <div className="pt-12 pb-6 px-5 bg-[#3A463D] text-white">
                 <p className="text-[1.75rem] font-semibold">Site Information</p>
