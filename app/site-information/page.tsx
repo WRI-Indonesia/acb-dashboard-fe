@@ -124,6 +124,7 @@ export default function SiteInformation() {
   const vectorSourceRef = useRef<VectorSource | null>(null);
   const scaleLineRef = useRef<HTMLDivElement>(null);
   const [geoData, setGeoData] = useState<GeoDataItem[] | null>(null);
+  const [isGeoLoading, setIsGeoLoading] = useState(true);
   const pathname = usePathname();
   const [selectedSite, setSelectedSite] = useState<SiteDetailData | null>(null);
   const detailAbortRef = useRef<AbortController | null>(null);
@@ -190,10 +191,12 @@ export default function SiteInformation() {
   }, [restorePreviousMapView]);
 
   useEffect(() => {
+    setIsGeoLoading(true);
     fetch(`${API_BASE_URL}/api/v1/geos/polygon`)
       .then(res => res.json())
       .then(data => setGeoData(data))
-      .catch(err => console.error("Error fetch polygon:", err));
+      .catch(err => console.error("Error fetch polygon:", err))
+      .finally(() => setIsGeoLoading(false));
   }, []);
 
   useEffect(() => {
@@ -461,6 +464,14 @@ export default function SiteInformation() {
       </div>
 
       <div ref={mapElement} className="flex-1 relative z-10">
+        {isGeoLoading && (
+          <div className="absolute inset-0 z-30 flex items-center justify-center bg-white/70 backdrop-blur-sm">
+            <div className="flex flex-col items-center gap-3 text-[#265F44]">
+              <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#265F44]/30 border-t-[#265F44]" />
+              <span className="text-xs font-semibold">Loading map data...</span>
+            </div>
+          </div>
+        )}
         <div className="absolute left-4 bottom-4 z-20 flex flex-col items-start gap-2 text-[12px] text-zinc-700">
           <div
             ref={scaleLineRef}
