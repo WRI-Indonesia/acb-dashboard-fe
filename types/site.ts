@@ -15,6 +15,7 @@ export interface DeforestationData {
     graph_data: number[];
     pct: number;
     text: string;
+    risk_text: string;
 }
 
 export interface CarbonEmissionBlock {
