@@ -545,7 +545,7 @@ export default function SiteDetailPanel({ site }: SiteDetailPanelProps) {
                         </div>
                         <div className="relative h-[10rem] overflow-hidden rounded-b-lg -mx-3 -mb-3">
                             <Image
-                                src="/forest_p1.png"
+                                src="/carbon.png"
                                 fill
                                 sizes="(max-width: 640px) 100vw, 420px"
                                 className="object-cover"
