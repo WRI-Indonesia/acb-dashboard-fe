@@ -21,6 +21,35 @@ import type { SiteDetailData } from '../../types/site';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 
+const getImageMimeType = (filename?: string | null) => {
+  const extension = filename?.split('.').pop()?.toLowerCase();
+  switch (extension) {
+    case 'jpg':
+    case 'jpeg':
+      return 'image/jpeg';
+    case 'png':
+      return 'image/png';
+    case 'webp':
+      return 'image/webp';
+    case 'gif':
+      return 'image/gif';
+    default:
+      return 'image/jpeg';
+  }
+};
+
+type ThumbnailImage = {
+  filename?: string | null;
+  image_data?: string | null;
+};
+
+const buildThumbnailSrc = (thumbnail?: ThumbnailImage | null) => {
+  if (!thumbnail?.image_data) return null;
+  if (thumbnail.image_data.startsWith('data:')) return thumbnail.image_data;
+  const mimeType = getImageMimeType(thumbnail.filename);
+  return `data:${mimeType};base64,${thumbnail.image_data}`;
+};
+
 type BaseMapType = 'grey' | 'osm' | 'satellite';
 
 const polygonStyle = new Style({
@@ -38,6 +67,7 @@ type HoverData = {
   area: number;
   id?: string | number;
   country: string;
+  thumbnailSrc?: string | null;
 }
 
 type Position = number[];
@@ -84,6 +114,7 @@ type GeoDataItem = {
   off_area: number;
   geometry: GeoJSONGeometry;
   iso3: string;
+  thumbnail?: ThumbnailImage | null;
 }
 
 export default function SiteInformation() {
@@ -268,13 +299,20 @@ export default function SiteInformation() {
       const feature = map.forEachFeatureAtPixel(e.pixel, (f) => f);
       
       if (feature) {
-        const properties = feature.getProperties();
+        const properties = feature.getProperties() as {
+          name: string;
+          area: number;
+          id?: string | number;
+          country: string;
+          thumbnailSrc?: string | null;
+        };
         
         setHoverData({
           name: properties.name,
           area: properties.area,
           id: properties.id,
-          country: properties.country
+          country: properties.country,
+          thumbnailSrc: properties.thumbnailSrc ?? null
         });
         setPointerPos({ x: e.pixel[0], y: e.pixel[1] });
         
@@ -314,7 +352,8 @@ export default function SiteInformation() {
               name: item.ahpname,
               id: item.ahpsiteid,
               area: item.off_area,
-              country: item.iso3
+              country: item.iso3,
+              thumbnailSrc: buildThumbnailSrc(item.thumbnail)
             }
           }))
         };
@@ -373,6 +412,9 @@ export default function SiteInformation() {
     window.addEventListener('resize', updatePopupPosition);
     return () => window.removeEventListener('resize', updatePopupPosition);
   }, [hoverData, pointerPos]);
+
+  const hoverImageSrc = hoverData?.thumbnailSrc ?? '/forest_placeholder.jpg';
+  const hoverImageInline = hoverImageSrc.startsWith('data:');
 
   return (
     <div className="relative w-full h-screen bg-white flex overflow-hidden font-sans">
@@ -544,10 +586,12 @@ export default function SiteInformation() {
         >
           <div className="relative w-full h-40">
             <Image 
-              src="/forest_placeholder.jpg" 
+              src={hoverImageSrc}
               fill 
+              sizes="280px"
               className="object-cover" 
               alt="Preview Site" 
+              unoptimized={hoverImageInline}
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
             <div className="absolute bottom-0 left-0 right-0 p-4 text-white">

@@ -27,6 +27,11 @@ export interface BiodiversityIndexAnalysis {
     shannon: BiodiversityIndexData[];
 }
 
+export interface SiteImage {
+    filename: string | null;
+    image_base64: string | null;
+}
+
 export interface SiteDetailData {
     country: string | null;
     ahp_name: string | null;
@@ -35,4 +40,5 @@ export interface SiteDetailData {
     deforestation: DeforestationData | null;
     carbon_emission: CarbonEmissionBlock | null;
     biodiversity_index_analysis: BiodiversityIndexAnalysis | null;
+    images?: SiteImage[] | null;
 }
