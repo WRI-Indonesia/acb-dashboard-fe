@@ -703,7 +703,7 @@ export default function MapEditor() {
         <div className="flex flex-col gap-4 w-full items-center">
           <Link href="/">
             <div className={`w-12 h-12 rounded-lg flex items-center justify-center transition-all ${
-              pathname === '/' ? 'bg-[#3A463D]' : 'text-white/40 hover:text-[#4ade80] hover:bg-[#062c21]/50 border-transparent'
+              pathname === '/' ? 'bg-[#3A463D] text-white' : 'text-white/40 hover:text-[#4ade80] hover:bg-[#062c21]/50 border-transparent'
             }`}>
               <Layers size={22} />
             </div>
@@ -733,7 +733,7 @@ export default function MapEditor() {
       </div>
 
       {/* LAYER PANEL (ABSOLUTE) */}
-      <div className="absolute left-[70px] top-0 w-[310px] bg-[#20372A] flex flex-col h-auto max-h-screen [@media(max-height:840px)]:max-h-[80vh] z-20 rounded-br-2xl">
+      <div className="absolute left-[70px] top-0 w-[310px] bg-[#3A463D] flex flex-col h-auto max-h-screen [@media(max-height:840px)]:max-h-[80vh] z-20 rounded-br-2xl">
         <div className="p-3 pt-[48px] pr-[20px] pb-[24px] pl-[20px] shrink-0">
           <h1 className="text-xl font-medium text-[24px] text-white tracking-tight leading-tight">
             Data Spatial Layer
@@ -763,7 +763,7 @@ export default function MapEditor() {
                 <Switch 
                   checked={activeStatus[layer.id] || false}
                   onCheckedChange={(val) => setActiveStatus(prev => ({...prev, [layer.id]: val}))}
-                  className="data-[state=checked]:bg-[#20372A] data-[state=unchecked]:bg-[#ffffff]/60 shrink-0"
+                  className="data-[state=checked]:bg-[#FF581D] data-[state=unchecked]:bg-[#ffffff]/60 shrink-0 data-[state=unchecked]:border-[#FECDBC] data-[state=checked]:border-[#B12E00]"
                 />
                 <div className="flex flex-col flex-1 min-w-0 pr-2">
                   <Label className="text-[16px] font-medium leading-tight cursor-pointer text-[#4C3838] truncate block w-full">

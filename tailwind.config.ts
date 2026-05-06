@@ -13,7 +13,7 @@ const config: Config = {
         foreground: "var(--foreground)",
       },
       fontFamily: {
-        sans: ["Acumin Pro Condensed", "system-ui", "sans-serif"],
+        sans: ["Cabin", "system-ui", "sans-serif"],
       },
     },
   },

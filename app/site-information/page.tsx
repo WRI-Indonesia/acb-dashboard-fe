@@ -25,7 +25,7 @@ type BaseMapType = 'grey' | 'osm' | 'satellite';
 
 const polygonStyle = new Style({
   stroke: new Stroke({
-    color: '#ff0000',
+    color: '#FF581D',
     width: 2,
   }),
   fill: new Fill({

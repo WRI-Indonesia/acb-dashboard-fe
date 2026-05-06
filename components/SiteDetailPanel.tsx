@@ -54,7 +54,7 @@ const Section: React.FC<{ title: string; children: React.ReactNode }> = ({ title
     return (
         <div className="relative flex flex-col gap-3 p-5 bg-[#E3E7D7]">
             <button onClick={() => setIsCollapsed(!isCollapsed)} className="w-full flex justify-between items-center bg-[#E3E7D7]">
-                <h3 className="font-semibold text-2xl text-[#265F44]">{title}</h3>
+                <h3 className="font-semibold text-2xl text-[#FF581D]">{title}</h3>
                 {isCollapsed ? <ChevronDown className="text-[#265F44]" /> : <ChevronUp className="text-[#265F44]"/>}
             </button>
             {!isCollapsed && (
@@ -91,7 +91,7 @@ const getDeforestationChartOptions = (graphData?: number[]): Highcharts.Options 
             showInLegend: false,
             type: 'column',
             data: data.map(v => Number((Number(v) * 100).toFixed(2))),
-            color: '#d9534f',
+            color: '#FF581D',
             borderWidth: 0
         }],
         credits: { enabled: false }
@@ -303,7 +303,7 @@ export default function SiteDetailPanel({ site }: SiteDetailPanelProps) {
                             <span className="font-['inter'] text-[#265F44] text-base font-semibold">{resolvedSite.class_description}</span>
                         </div>
                     </div>
-                    <Share2 className="cursor-pointer bg-[#265F44]" />
+                    <Share2 className="cursor-pointer bg-[#FF581D] p-[2px] rounded-sm" />
                 </div>
             </div>
 
@@ -330,15 +330,15 @@ export default function SiteDetailPanel({ site }: SiteDetailPanelProps) {
             </Section>
 
             <Section title="Carbon Emission">
-                <div className="flex flex-col gap-3">
-                    <div className="flex items-center justify-between bg-[#265F44] rounded-lg h-[44px] p-1">
+                <div className="flex flex-col gap-3 bg-[#c8d2c3]">
+                    <div className="flex items-center justify-between bg-[#FF581D] rounded-lg h-[44px] p-1">
                         {[10, 15, 20].map(year => (
                             <button
                                 key={year}
                                 onClick={() => setActiveTab(year)}
                                 className={`flex-1 font-semibold rounded-md transition-colors ${
                                     activeTab === year
-                                        ? 'bg-[#9BB69B] text-[#265F44] text-xl items-center px-3 py-1'
+                                        ? 'bg-[#FF7746] text-[#FBFBF9] text-xl items-center px-3 py-1'
                                         : 'text-[#FBFBF9] text-xl items-center'
                                 }`}
                             >
@@ -418,7 +418,7 @@ export default function SiteDetailPanel({ site }: SiteDetailPanelProps) {
             </Section>
 
             <Section title="Biodiversity Index Analysis">
-                <div>
+                <div className="bg-[#c8d2c3]">
                     <HighchartsReact
                         highcharts={Highcharts}
                         options={biodiversityChartOptions(
