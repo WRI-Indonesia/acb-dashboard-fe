@@ -7,7 +7,7 @@ import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Share2 } from 'lucid
 import Highcharts from 'highcharts';
 import HighchartsReact from 'highcharts-react-official';
 
-const siteDetailData = {
+const siteDetailData: SiteDetailData = {
     country: "Indonesia",
     ahp_name: "Humbo Community Managed Forestry (FMNR) Project",
     area_ha: 2801.99,
@@ -298,6 +298,10 @@ export default function SiteDetailPanel({ site }: SiteDetailPanelProps) {
         images: site.images ?? siteDetailData.images,
     };
 
+    const deforestation = resolvedSite.deforestation ?? siteDetailData.deforestation;
+    const carbonEmission = resolvedSite.carbon_emission ?? siteDetailData.carbon_emission;
+    const biodiversityIndex = resolvedSite.biodiversity_index_analysis ?? siteDetailData.biodiversity_index_analysis;
+
     const siteImages = (resolvedSite.images ?? [])
         .map((image, index) => {
             const src = buildImageSrc(image);
@@ -445,14 +449,14 @@ export default function SiteDetailPanel({ site }: SiteDetailPanelProps) {
             <Section title="Deforestation">
                 <div className="bg-[#c8d2c3] flex flex-col rounded-lg gap-1 p-3">
                     <h4 className="font-semibold text-xl text-[#265F44]">Deforestation in this project area in the past 10 years</h4>
-                    <HighchartsReact highcharts={Highcharts} options={getDeforestationChartOptions(resolvedSite.deforestation?.graph_data)} />
+                    <HighchartsReact highcharts={Highcharts} options={getDeforestationChartOptions(deforestation?.graph_data)} />
                     <div className="flex flex-col gap-3">
                         <div className="flex flex-row gap-5">
                             <p className="text-[2rem] text-nowrap font-semibold text-[#265F44]">
-                                {resolvedSite.deforestation.annual ? Number(Number(resolvedSite.deforestation.annual).toFixed(2)).toLocaleString() : '-'} ha/year
+                                {deforestation?.annual ? Number(Number(deforestation?.annual).toFixed(2)).toLocaleString() : '-'} ha/year
                             </p>
                             <p className="text-xs font-[inter] text-[leading-relaxed text-[#5a6b5f]">
-                                {resolvedSite.deforestation.text}
+                                {deforestation?.text}
                             </p>
                         </div>
                         <div className="rounded-md bg-[#9BB69B] p-2">
@@ -493,7 +497,7 @@ export default function SiteDetailPanel({ site }: SiteDetailPanelProps) {
                                         <div className="flex flex-col w-[162px]">
                                             <p className="text-[2rem] leading-none font-bold text-[#265F44]">
                                                 {(() => {
-                                                    const val = resolvedSite.carbon_emission.potential_avoided.find(p => p.project_duration === activeTab)?.total_co2eq;
+                                                    const val = carbonEmission?.potential_avoided.find(p => p.project_duration === activeTab)?.total_co2eq;
                                                     return val !== undefined ? Number(val.toFixed(2)).toLocaleString() : '-';
                                                 })()} ton
                                             </p>
@@ -526,7 +530,7 @@ export default function SiteDetailPanel({ site }: SiteDetailPanelProps) {
                                 <div className="flex flex-col w-[162px]">
                                     <p className="text-[1.5rem] font-bold text-[#265F44]">
                                         {(() => {
-                                            const val = resolvedSite.carbon_emission.potential_sequestered.find(p => p.project_duration === activeTab)?.total_co2eq;
+                                            const val = carbonEmission?.potential_sequestered.find(p => p.project_duration === activeTab)?.total_co2eq;
                                             return val !== undefined ? Number(val.toFixed(2)).toLocaleString() : '-';
                                         })()} ton
                                     </p>
@@ -558,7 +562,7 @@ export default function SiteDetailPanel({ site }: SiteDetailPanelProps) {
                         highcharts={Highcharts}
                         options={biodiversityChartOptions(
                             'Annual Simpson Diversity Index',
-                            resolvedSite.biodiversity_index_analysis.simpson,
+                            biodiversityIndex?.simpson ?? [],
                             [
                                 { name: 'Very high diversity', color: '#dc2626' },
                                 { name: 'High diversity', color: '#b91c1c' }
@@ -572,7 +576,7 @@ export default function SiteDetailPanel({ site }: SiteDetailPanelProps) {
                         highcharts={Highcharts}
                         options={biodiversityChartOptions(
                             'Annual Shannon Diversity Index',
-                            resolvedSite.biodiversity_index_analysis.shannon,
+                            biodiversityIndex?.shannon ?? [],
                             [
                                 { name: 'High diversity', color: '#dc2626' },
                                 { name: 'Moderate diversity', color: '#f59e0b' }
