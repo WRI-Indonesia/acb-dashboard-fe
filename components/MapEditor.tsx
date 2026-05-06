@@ -29,6 +29,9 @@ type LayerConfig = {
   format: string;
   has_child: boolean;
   id: number;
+  info?: boolean;
+  info_label?: string;
+  info_field?: string;
   layers: string;
   matrix_set: string;
   name: string;
@@ -120,6 +123,83 @@ const createWMTSSource = (config: LayerConfig) => {
   });
 };
 
+function parseGetFeatureInfoJson(
+  json: unknown,
+  labels: string[],
+  fields: string[]
+): { label: string; value: string }[] {
+  if (!json || typeof json !== 'object') return [];
+  const root = json as Record<string, unknown>;
+
+  let features: unknown[] | null = null;
+
+  if (Array.isArray(root.features)) {
+    features = root.features;
+  } else if (Array.isArray(root.Features)) {
+    features = root.Features;
+  } else if (Array.isArray(root.results)) {
+    features = root.results;
+  }
+
+  if (!features || features.length === 0) return [];
+
+  const feature = features[0] as Record<string, unknown>;
+  const props = (feature.properties || feature.attributes || feature) as Record<string, unknown>;
+
+  const rows: { label: string; value: string }[] = [];
+
+  if (labels.length > 0 && fields.length > 0) {
+    const minLen = Math.min(labels.length, fields.length);
+    for (let i = 0; i < minLen; i++) {
+      const value = props[fields[i]];
+      if (value !== undefined && value !== null && String(value).trim() !== '') {
+        rows.push({ label: labels[i], value: String(value) });
+      }
+    }
+  } else {
+    for (const [key, val] of Object.entries(props)) {
+      if (val !== null && val !== undefined && String(val).trim() !== '') {
+        rows.push({ label: key, value: String(val) });
+      }
+    }
+  }
+
+  return rows;
+}
+
+function parseGetFeatureInfoText(
+  text: string,
+  labels: string[],
+  fields: string[]
+): { label: string; value: string }[] {
+  const rows: { label: string; value: string }[] = [];
+
+  if (labels.length > 0 && fields.length > 0) {
+    const minLen = Math.min(labels.length, fields.length);
+    for (let i = 0; i < minLen; i++) {
+      const fieldName = fields[i];
+      const patterns = [
+        new RegExp(`${fieldName}\\s*[:=]\\s*["']?([^"'\\n]+)["']?`, 'i'),
+        new RegExp(`${fieldName}\\s+([^\\n]+)`, 'i'),
+      ];
+      let found = false;
+      for (const pattern of patterns) {
+        const match = text.match(pattern);
+        if (match) {
+          rows.push({ label: labels[i], value: match[1].trim() });
+          found = true;
+          break;
+        }
+      }
+      if (!found) {
+        rows.push({ label: labels[i], value: '-' });
+      }
+    }
+  }
+
+  return rows;
+}
+
 export default function MapEditor() {
   const mapElement = useRef<HTMLDivElement>(null);
   const mapRef = useRef<Map | null>(null);
@@ -145,6 +225,14 @@ export default function MapEditor() {
   const [showOpacitySlider, setShowOpacitySlider] = useState<Record<number, boolean>>({});
   const [layerSearchText, setLayerSearchText] = useState('');
   const [infoPanelLeft, setInfoPanelLeft] = useState<number>(0);
+
+  const [featureInfoData, setFeatureInfoData] = useState<{
+    layerName: string;
+    rows: { label: string; value: string }[];
+  } | null>(null);
+  const [featureInfoPos, setFeatureInfoPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
+  const featureInfoRef = useRef<HTMLDivElement>(null);
+
   const baseLayersRef = useRef<{
     grey: TileLayer<XYZ> | null;
     osm: TileLayer<OSM> | null;
@@ -309,6 +397,99 @@ export default function MapEditor() {
       }
     });
   }, [activeStatus, layerConfigs, legendData]);
+
+  useEffect(() => {
+    if (!featureInfoData) return;
+    const handleClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (!target) return;
+      if (featureInfoRef.current?.contains(target)) return;
+      setFeatureInfoData(null);
+    };
+    document.addEventListener('click', handleClick);
+    return () => document.removeEventListener('click', handleClick);
+  }, [featureInfoData]);
+
+  useEffect(() => {
+    if (!mapRef.current) return;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const handleMapClick = async (evt: any) => {
+      // Close any existing feature info first
+      setFeatureInfoData(null);
+
+      const activeInfoLayers = layerConfigs.filter(
+        (c) => activeStatus[String(c.id)] && c.info === true
+      );
+      if (activeInfoLayers.length === 0) return;
+
+      const view = mapRef.current!.getView();
+      const projection = view.getProjection();
+      const mapSize = mapRef.current!.getSize()!;
+      const extent = view.calculateExtent(mapSize);
+      const pixel = evt.pixel;
+
+      const layer = activeInfoLayers[0];
+
+      try {
+        const wmsUrl = layer.url;
+        if (!wmsUrl) return;
+
+        const labels = (layer.info_label || '').split(';').map(s => s.trim()).filter(Boolean);
+        const fields = (layer.info_field || '').split(';').map(s => s.trim()).filter(Boolean);
+
+        const params = new URLSearchParams({
+          SERVICE: layer.service || 'WMS',
+          VERSION: layer.version || '1.3.0',
+          REQUEST: 'GetFeatureInfo',
+          LAYERS: layer.layers,
+          QUERY_LAYERS: layer.layers,
+          BBOX: extent.join(','),
+          X: String(Math.round(pixel[0])),
+          Y: String(Math.round(pixel[1])),
+          WIDTH: String(mapSize[0]),
+          HEIGHT: String(mapSize[1]),
+          SRS: projection.getCode(),
+          INFO_FORMAT: 'application/json',
+          FEATURE_COUNT: '1',
+        });
+
+        const getFeatureInfoUrl = `${wmsUrl}?${params.toString()}`;
+        const proxyUrl = `${API_BASE_URL}/api/v1/proxy?url=${encodeURIComponent(getFeatureInfoUrl)}`;
+
+        const res = await fetch(proxyUrl, { signal: AbortSignal.timeout(10000) });
+
+        if (!res.ok) {
+          params.set('INFO_FORMAT', 'text/plain');
+          const fallbackUrl = `${wmsUrl}?${params.toString()}`;
+          const fallbackProxyUrl = `${API_BASE_URL}/api/v1/proxy?url=${encodeURIComponent(fallbackUrl)}`;
+          const fallbackRes = await fetch(fallbackProxyUrl, { signal: AbortSignal.timeout(10000) });
+          if (!fallbackRes.ok) return;
+          const text = await fallbackRes.text();
+          const rows = parseGetFeatureInfoText(text, labels, fields);
+          if (rows.length === 0) return;
+
+          const pos = mapRef.current!.getEventPixel(evt.originalEvent);
+          setFeatureInfoPos({ top: pos[1] + 10, left: pos[0] + 10 });
+          setFeatureInfoData({ layerName: layer.name, rows });
+          return;
+        }
+
+        const json = await res.json();
+        const rows = parseGetFeatureInfoJson(json, labels, fields);
+        if (rows.length === 0) return;
+
+        const pos = mapRef.current!.getEventPixel(evt.originalEvent);
+        setFeatureInfoPos({ top: pos[1] + 10, left: pos[0] + 10 });
+        setFeatureInfoData({ layerName: layer.name, rows });
+      } catch (err) {
+        console.error(`GetFeatureInfo error for ${layer.name}:`, err);
+      }
+    };
+
+    mapRef.current.on('click', handleMapClick);
+    return () => { mapRef.current?.un('click', handleMapClick); };
+  }, [activeStatus, layerConfigs]);
 
   useEffect(() => {
     if (!mapRef.current || layerConfigs.length === 0) return;
@@ -842,6 +1023,48 @@ export default function MapEditor() {
                     <span className="text-[12px] font-medium">{selectedInfoLayer.source || '-'}</span>
                   </div>
                 </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* FEATURE INFO POPUP (from map click) */}
+      {featureInfoData && (
+        <div
+          ref={featureInfoRef}
+          className="absolute w-[320px] max-h-[50vh] bg-white z-[110] border border-black flex flex-col rounded-lg shadow-2xl"
+          style={{
+            top: Math.min(featureInfoPos.top, window.innerHeight - 200),
+            left: Math.min(featureInfoPos.left, window.innerWidth - 340),
+          }}
+        >
+          <div className="p-4 flex flex-col w-full max-h-[50vh] p-3 overflow-hidden">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <Image src="/info.svg" alt="Info" width={20} height={20} className="text-zinc-500" />
+                <h2 className="text-[1rem] font-bold text-[#062c21]">{featureInfoData.layerName}</h2>
+              </div>
+              <button
+                onClick={() => setFeatureInfoData(null)}
+                className="p-1 hover:bg-zinc-100 rounded-full"
+              >
+                <X size={16} className="text-zinc-400" />
+              </button>
+            </div>
+
+            <div className="w-full h-px bg-zinc-100 mb-4" />
+
+            <div className="flex-1 overflow-y-auto pr-1 custom-scrollbar-detail text-[#062c21]">
+              <div className="space-y-4">
+                {featureInfoData.rows.map((row, idx) => (
+                  <div key={idx}>
+                    <span className="text-[11px] font-bold uppercase opacity-50 block">
+                      {row.label}
+                    </span>
+                    <span className="text-[12px]">{row.value}</span>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
