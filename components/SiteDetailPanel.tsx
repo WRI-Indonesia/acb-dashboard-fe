@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useState } from 'react';
-import type { SiteDetailData, BiodiversityIndexData } from '../types/site';
+import React, { useEffect, useState } from 'react';
+import type { SiteDetailData, BiodiversityIndexData, SiteImage } from '../types/site';
 import Image from 'next/image';
-import { ChevronDown, ChevronUp, Share2 } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Share2 } from 'lucide-react';
 import Highcharts from 'highcharts';
 import HighchartsReact from 'highcharts-react-official';
 
@@ -42,11 +42,42 @@ const siteDetailData = {
             { "year": 2005, "value": 4.6917 },
             { "year": 2007, "value": 1.7478 }
         ]
-    }
+    },
+    images: []
 };
 
 const SIMPSON_DIVERSITY_THRESHOLD = 0.8;
 const SHANNON_DIVERSITY_THRESHOLD = 2.2;
+
+const DEFAULT_IMAGE_HEIGHT_RATIO = 0.32;
+const FALLBACK_IMAGES = [
+    { src: '/forest_p1.png', alt: 'Site image 1' },
+    { src: '/forest_p2.png', alt: 'Site image 2' }
+];
+
+const getImageMimeType = (filename?: string | null) => {
+    const extension = filename?.split('.').pop()?.toLowerCase();
+    switch (extension) {
+        case 'jpg':
+        case 'jpeg':
+            return 'image/jpeg';
+        case 'png':
+            return 'image/png';
+        case 'webp':
+            return 'image/webp';
+        case 'gif':
+            return 'image/gif';
+        default:
+            return 'image/jpeg';
+    }
+};
+
+const buildImageSrc = (image?: SiteImage | null) => {
+    if (!image?.image_base64) return null;
+    if (image.image_base64.startsWith('data:')) return image.image_base64;
+    const mimeType = getImageMimeType(image.filename);
+    return `data:${mimeType};base64,${image.image_base64}`;
+};
 
 
 const Section: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => {
@@ -227,6 +258,32 @@ type SiteDetailPanelProps = {
 
 export default function SiteDetailPanel({ site }: SiteDetailPanelProps) {
     const [activeTab, setActiveTab] = useState(10);
+    const [activeImageIndex, setActiveImageIndex] = useState(0);
+    const [imageRatios, setImageRatios] = useState<Record<number, number>>({});
+
+    useEffect(() => {
+        setActiveImageIndex(0);
+        setImageRatios({});
+    }, [site?.ahp_name, site?.images]);
+
+    const maxHeightRatio = Math.max(
+        DEFAULT_IMAGE_HEIGHT_RATIO,
+        ...Object.values(imageRatios)
+    );
+    const imageContainerStyle: React.CSSProperties = {
+        aspectRatio: 1 / maxHeightRatio,
+        minHeight: '11rem',
+        maxHeight: '400px'
+    };
+
+    const handleImageLoad = (index: number) => (img: HTMLImageElement) => {
+        if (!img?.naturalWidth || !img?.naturalHeight) return;
+        const ratio = img.naturalHeight / img.naturalWidth;
+        setImageRatios((prev) => {
+            if (prev[index] === ratio) return prev;
+            return { ...prev, [index]: ratio };
+        });
+    };
 
     if (!site) return null;
 
@@ -238,7 +295,24 @@ export default function SiteDetailPanel({ site }: SiteDetailPanelProps) {
         deforestation: site.deforestation ?? siteDetailData.deforestation,
         carbon_emission: site.carbon_emission ?? siteDetailData.carbon_emission,
         biodiversity_index_analysis: site.biodiversity_index_analysis ?? siteDetailData.biodiversity_index_analysis,
+        images: site.images ?? siteDetailData.images,
     };
+
+    const siteImages = (resolvedSite.images ?? [])
+        .map((image, index) => {
+            const src = buildImageSrc(image);
+            if (!src) return null;
+            return {
+                src,
+                alt: image?.filename
+                    ? `Site image ${index + 1} (${image.filename})`
+                    : `Site image ${index + 1}`
+            };
+        })
+        .filter((image): image is { src: string; alt: string } => Boolean(image));
+
+    const isCarousel = siteImages.length > 1;
+    const showSingleImage = siteImages.length === 1;
 
     return (
         <div className="absolute top-0 left-[70px] w-[600px] h-full bg-[#E3E7D7] z-40 shadow-2xl overflow-visible">
@@ -261,26 +335,87 @@ export default function SiteDetailPanel({ site }: SiteDetailPanelProps) {
                 </div>
 
                 <div className="grid grid-cols-1 gap-3">
-                    <div className="flex w-full flex-row">
-                        <div className="relative h-44 flex-1 overflow-hidden rounded-l-lg">
+                    {isCarousel ? (
+                        <div
+                            className="relative w-full overflow-hidden rounded-lg bg-[#c8d2c3]"
+                            style={imageContainerStyle}
+                        >
+                            <div
+                                className="absolute inset-0 flex transition-transform duration-500 ease-in-out"
+                                style={{ transform: `translateX(-${activeImageIndex * 100}%)` }}
+                            >
+                                {siteImages.map((image, index) => (
+                                    <div key={`${image.alt}-${index}`} className="relative h-full min-w-full">
+                                        <Image
+                                            src={image.src}
+                                            fill
+                                            sizes="(max-width: 640px) 100vw, 520px"
+                                            className="object-cover"
+                                            alt={image.alt}
+                                            unoptimized
+                                            onLoadingComplete={handleImageLoad(index)}
+                                        />
+                                    </div>
+                                ))}
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setActiveImageIndex((prev) => (prev - 1 + siteImages.length) % siteImages.length)}
+                                className="absolute left-3 top-1/2 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded-full bg-[#265F44] text-white shadow-md transition hover:bg-[#1f4b36]"
+                                aria-label="Previous image"
+                            >
+                                <ChevronLeft size={18} />
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setActiveImageIndex((prev) => (prev + 1) % siteImages.length)}
+                                className="absolute right-3 top-1/2 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded-full bg-[#265F44] text-white shadow-md transition hover:bg-[#1f4b36]"
+                                aria-label="Next image"
+                            >
+                                <ChevronRight size={18} />
+                            </button>
+                            <div className="absolute bottom-2 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-full bg-[#E3E7D7]/80 px-3 py-1">
+                                {siteImages.map((_, index) => (
+                                    <span
+                                        key={`indicator-${index}`}
+                                        className={`h-2 w-2 rounded-full ${index === activeImageIndex ? 'bg-[#265F44]' : 'bg-[#BAC0A7]'}`}
+                                    />
+                                ))}
+                            </div>
+                        </div>
+                    ) : showSingleImage ? (
+                        <div
+                            className="relative w-full overflow-hidden rounded-lg"
+                            style={imageContainerStyle}
+                        >
                             <Image
-                                src="/forest_p1.png"
+                                src={siteImages[0].src}
                                 fill
-                                sizes="(max-width: 640px) 100vw, 264px"
+                                sizes="(max-width: 640px) 100vw, 520px"
                                 className="object-cover"
-                                alt="Site image 1"
+                                alt={siteImages[0].alt}
+                                unoptimized
+                                onLoadingComplete={handleImageLoad(0)}
                             />
                         </div>
-                        <div className="relative h-44 flex-1 overflow-hidden rounded-r-lg">
-                            <Image
-                                src="/forest_p2.png"
-                                fill
-                                sizes="(max-width: 640px) 100vw, 264px"
-                                className="object-cover"
-                                alt="Site image 2"
-                            />
-                        </div>                        
-                    </div>
+                    ) : (
+                        <div className="flex w-full flex-row">
+                            {FALLBACK_IMAGES.map((image, index) => (
+                                <div
+                                    key={image.src}
+                                    className={`relative h-44 flex-1 overflow-hidden ${index === 0 ? 'rounded-l-lg' : 'rounded-r-lg'}`}
+                                >
+                                    <Image
+                                        src={image.src}
+                                        fill
+                                        sizes="(max-width: 640px) 100vw, 264px"
+                                        className="object-cover"
+                                        alt={image.alt}
+                                    />
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </div>
                 <div className="flex justify-between items-center">
                     <div className="flex items-center gap-4">
