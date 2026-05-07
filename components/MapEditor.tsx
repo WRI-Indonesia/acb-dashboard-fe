@@ -246,8 +246,11 @@ export default function MapEditor() {
     const cached = wmsInfoSourcesRef.current[layer.id];
     if (cached) return cached;
 
+    // WMTS → WMS URL: GeoServer GWC WMTS → standard WMS
+    const wmsUrl = layer.url.replace(/\/gwc\/service\/wmts$/, '/wms');
+
     const source = new TileWMS({
-      url: layer.url,
+      url: wmsUrl,
       params: {
         LAYERS: layer.layers,
         VERSION: layer.version || '1.3.0',
