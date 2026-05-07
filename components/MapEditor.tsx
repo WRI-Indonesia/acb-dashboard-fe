@@ -6,7 +6,6 @@ import { Map, View } from 'ol';
 import TileLayer from 'ol/layer/Tile';
 import OSM from 'ol/source/OSM';
 import XYZ from 'ol/source/XYZ';
-import TileWMS from 'ol/source/TileWMS';
 import Image from 'next/image';
 import WMTS from 'ol/source/WMTS';
 import WMTSTileGrid from 'ol/tilegrid/WMTS';
@@ -233,7 +232,6 @@ export default function MapEditor() {
   } | null>(null);
   const [featureInfoPos, setFeatureInfoPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
   const featureInfoRef = useRef<HTMLDivElement>(null);
-  const wmsInfoSourcesRef = useRef<Record<number, TileWMS>>({});
 
   const baseLayersRef = useRef<{
     grey: TileLayer<XYZ> | null;
@@ -241,25 +239,6 @@ export default function MapEditor() {
     satellite: TileLayer<XYZ> | null;
     satelliteLabels: TileLayer<XYZ> | null;
   }>({ grey: null, osm: null, satellite: null, satelliteLabels: null });
-
-  const getWmsInfoSource = (layer: LayerConfig) => {
-    const cached = wmsInfoSourcesRef.current[layer.id];
-    if (cached) return cached;
-
-    // WMTS → WMS URL: GeoServer GWC WMTS → standard WMS
-    const wmsUrl = layer.url.replace(/\/gwc\/service\/wmts$/, '/wms');
-
-    const source = new TileWMS({
-      url: wmsUrl,
-      params: {
-        LAYERS: layer.layers,
-        VERSION: layer.version || '1.3.0',
-      },
-      crossOrigin: 'anonymous',
-    });
-    wmsInfoSourcesRef.current[layer.id] = source;
-    return source;
-  };
 
   const openInfoPanel = (rect: DOMRect, layer: LayerConfig) => {
     setInfoPanelAnchor(rect);
@@ -445,44 +424,56 @@ export default function MapEditor() {
 
       const view = mapRef.current!.getView();
       const layer = activeInfoLayers[0];
-      const wmsUrl = layer.url;
+
+      const wmsUrl = layer.url.replace(/\/gwc\/service\/wmts$/, '/wms');
       if (!wmsUrl) return;
 
-      const resolution = view.getResolution();
-      if (!resolution) return;
+      const mapSize = mapRef.current!.getSize()!;
+      const extent = view.calculateExtent(mapSize);
       const projection = view.getProjection();
-      const infoSource = getWmsInfoSource(layer);
-      const infoParams = {
-        INFO_FORMAT: 'application/json',
-        FEATURE_COUNT: 1,
-        QUERY_LAYERS: layer.layers,
-      };
+      const version = layer.version || '1.3.0';
+      const is130 = version.startsWith('1.3');
 
       const labels = (layer.info_label || '').split(';').map(s => s.trim()).filter(Boolean);
       const fields = (layer.info_field || '').split(';').map(s => s.trim()).filter(Boolean);
 
-      const infoUrl = infoSource.getFeatureInfoUrl(
-        evt.coordinate,
-        resolution,
-        projection,
-        infoParams
-      );
-      if (!infoUrl) return;
+      const buildUrl = (infoFormat: string) => {
+        const px = Math.round(((evt.coordinate[0] - extent[0]) / (extent[2] - extent[0])) * mapSize[0]);
+        const py = Math.round(((extent[3] - evt.coordinate[1]) / (extent[3] - extent[1])) * mapSize[1]);
 
-      const proxyUrl = `${API_BASE_URL}/api/v1/proxy?url=${encodeURIComponent(infoUrl)}`;
+        const params = new URLSearchParams({
+          SERVICE: 'WMS',
+          VERSION: version,
+          REQUEST: 'GetFeatureInfo',
+          LAYERS: layer.layers,
+          QUERY_LAYERS: layer.layers,
+          BBOX: extent.join(','),
+          WIDTH: String(mapSize[0]),
+          HEIGHT: String(mapSize[1]),
+          INFO_FORMAT: infoFormat,
+          FEATURE_COUNT: '1',
+        });
+
+        if (is130) {
+          params.set('CRS', projection.getCode());
+          params.set('I', String(px));
+          params.set('J', String(py));
+        } else {
+          params.set('SRS', projection.getCode());
+          params.set('X', String(px));
+          params.set('Y', String(py));
+        }
+
+        return `${wmsUrl}?${params.toString()}`;
+      };
+
+      const proxyUrl = `${API_BASE_URL}/api/v1/proxy?url=${encodeURIComponent(buildUrl('application/json'))}`;
 
       try {
         const res = await fetch(proxyUrl, { signal: AbortSignal.timeout(10000) });
 
         if (!res.ok) {
-          const fallbackUrl = infoSource.getFeatureInfoUrl(
-            evt.coordinate,
-            resolution,
-            projection,
-            { ...infoParams, INFO_FORMAT: 'text/plain' }
-          );
-          if (!fallbackUrl) return;
-          const fallbackProxyUrl = `${API_BASE_URL}/api/v1/proxy?url=${encodeURIComponent(fallbackUrl)}`;
+          const fallbackProxyUrl = `${API_BASE_URL}/api/v1/proxy?url=${encodeURIComponent(buildUrl('text/plain'))}`;
           const fallbackRes = await fetch(fallbackProxyUrl, { signal: AbortSignal.timeout(10000) });
           if (!fallbackRes.ok) return;
           const text = await fallbackRes.text();
