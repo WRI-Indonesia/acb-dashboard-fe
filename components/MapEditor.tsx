@@ -425,7 +425,8 @@ export default function MapEditor() {
       const view = mapRef.current!.getView();
       const layer = activeInfoLayers[0];
 
-      const wmsUrl = layer.url.replace(/\/gwc\/service\/wmts$/, '/wms');
+      const cleanUrl = layer.url.replace(/\?$/, '');
+      const wmsUrl = cleanUrl.replace(/\/gwc\/service\/wmts$/, '/wms');
       if (!wmsUrl) return;
 
       const mapSize = mapRef.current!.getSize()!;
