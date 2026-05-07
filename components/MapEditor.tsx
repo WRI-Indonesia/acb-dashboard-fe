@@ -1045,29 +1045,29 @@ export default function MapEditor() {
       {featureInfoData && (
         <div
           ref={featureInfoRef}
-          className="absolute w-[320px] max-h-[50vh] bg-white z-[110] border border-black flex flex-col rounded-lg shadow-2xl"
+          className="fixed w-[320px] max-h-[60vh] bg-white z-[110] border border-black flex flex-col rounded-lg shadow-2xl"
           style={{
-            top: Math.min(featureInfoPos.top, window.innerHeight - 200),
-            left: Math.min(featureInfoPos.left, window.innerWidth - 340),
+            top: Math.min(Math.max(featureInfoPos.top, 12), window.innerHeight - 80),
+            left: Math.min(Math.max(featureInfoPos.left, 12), window.innerWidth - 332),
           }}
         >
-          <div className="p-4 flex flex-col w-full max-h-[50vh] p-3 overflow-hidden">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2">
-                <Image src="/info.svg" alt="Info" width={20} height={20} className="text-zinc-500" />
-                <h2 className="text-[1rem] font-bold text-[#062c21]">{featureInfoData.layerName}</h2>
+          <div className="flex flex-col w-full max-h-[60vh] overflow-hidden">
+            <div className="flex items-center justify-between p-3 pb-0 gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <Image src="/info.svg" alt="Info" width={20} height={20} className="shrink-0" />
+                <h2 className="text-[1rem] font-bold text-[#062c21] truncate">{featureInfoData.layerName}</h2>
               </div>
               <button
                 onClick={() => setFeatureInfoData(null)}
-                className="p-1 hover:bg-zinc-100 rounded-full"
+                className="p-1 hover:bg-zinc-100 rounded-full shrink-0"
               >
                 <X size={16} className="text-zinc-400" />
               </button>
             </div>
 
-            <div className="w-full h-px bg-zinc-100 mb-4" />
+            <div className="w-full h-px bg-zinc-100 my-3" />
 
-            <div className="flex-1 overflow-y-auto pr-1 custom-scrollbar-detail text-[#062c21]">
+            <div className="overflow-y-auto px-3 pb-3 custom-scrollbar-detail text-[#062c21]">
               <div className="space-y-4">
                 {featureInfoData.rows.map((row, idx) => (
                   <div key={idx}>
