@@ -298,6 +298,19 @@ export default function MapEditor() {
     );
   };
 
+  const isCarbonStockLayer = (config: LayerConfig) => {
+    if (!config) return false;
+    const layerId = String(config.layers || '').toLowerCase();
+    const name = String(config.name || '').toLowerCase();
+    return (
+      layerId.includes('current_carbon_stock') ||
+      layerId.includes('carbon_stock') ||
+      name.includes('current carbon') ||
+      name.includes('carbon storage') ||
+      (name.includes('carbon') && name.includes('stock'))
+    );
+  };
+
   useEffect(() => {
     if (!mapElement.current) return;
 
@@ -761,7 +774,7 @@ export default function MapEditor() {
                         const colormapEntries = symbolizer?.Raster?.colormap?.entries;
                         const colormapType = symbolizer?.Raster?.colormap?.type;
                         const labeledCount = colormapEntries ? colormapEntries.filter((e: LegendEntry) => e.label && String(e.label).trim() !== '').length : 0;
-                        const isRamp = colormapEntries && colormapEntries.length > 2 && colormapEntries.every((e: LegendEntry) => e.color) && (colormapType === 'ramp' || labeledCount >= 2) && isFutureDefLayer(config);
+                        const isRamp = colormapEntries && colormapEntries.length > 2 && colormapEntries.every((e: LegendEntry) => e.color) && (colormapType === 'ramp' || labeledCount >= 2) && (isFutureDefLayer(config) || isCarbonStockLayer(config));
 
                         if (isRamp) {
                           const boxH = 120;
@@ -1349,7 +1362,7 @@ export default function MapEditor() {
                                 const symbolizer = rule.symbolizers[0];
                                 const colormapEntries = symbolizer?.Raster?.colormap?.entries;
                                 const colormapType = symbolizer?.Raster?.colormap?.type;
-                                const isRamp = colormapEntries && colormapEntries.length > 2 && colormapEntries.every((e: LegendEntry) => e.color) && (colormapType === 'ramp' || colormapEntries.some((e: LegendEntry) => e.label && String(e.label).trim() !== '')) && isFutureDefLayer(config);
+                                const isRamp = colormapEntries && colormapEntries.length > 2 && colormapEntries.every((e: LegendEntry) => e.color) && (colormapType === 'ramp' || colormapEntries.some((e: LegendEntry) => e.label && String(e.label).trim() !== '')) && (isFutureDefLayer(config) || isCarbonStockLayer(config));
 
                                 if (isRamp) {
                                   const heightPx = 120;
