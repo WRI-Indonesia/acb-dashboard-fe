@@ -671,11 +671,11 @@ export default function SiteDetailPanel({ site }: SiteDetailPanelProps) {
                                 <div className="flex flex-row w-[424px] items-center gap-4">
                                     <div className="flex">
                                         <div className="flex flex-col w-[162px]">
-                                            <p className="text-[2rem] leading-none font-bold text-[#265F44]">
+                                            <p className="text-[clamp(1rem,2.8vw,1.75rem)] leading-tight font-bold text-[#265F44] break-words max-w-full">
                                                 {(() => {
                                                     const val = carbonEmission?.potential_avoided.find(p => p.project_duration === activeTab)?.total_co2eq;
                                                     return val !== undefined ? Number(val.toFixed(2)).toLocaleString() : '-';
-                                                })()} ton
+                                                })()}<span className="whitespace-nowrap"> ton</span>
                                             </p>
                                             <p className="mt-2 font-[inter] text-xs leading-snug text-[#265F44]">
                                                 of Carbon emission can be avoided
@@ -704,11 +704,11 @@ export default function SiteDetailPanel({ site }: SiteDetailPanelProps) {
                         <div className="flex flex-row gap-4 items-end">
                             <div className="flex">
                                 <div className="flex flex-col w-[162px]">
-                                    <p className="text-[1.5rem] font-bold text-[#265F44]">
+                                    <p className="text-[clamp(1rem,2.8vw,1.75rem)] leading-tight font-bold text-[#265F44] break-words max-w-full">
                                         {(() => {
                                             const val = carbonEmission?.potential_sequestered.find(p => p.project_duration === activeTab)?.total_co2eq;
                                             return val !== undefined ? Number(val.toFixed(2)).toLocaleString() : '-';
-                                        })()} ton
+                                        })()}<span className="whitespace-nowrap"> ton</span>
                                     </p>
                                     <p className="font-[inter] text-xs text-[#265F44]">of CO2eq potentially accumulated</p>
                                 </div>
