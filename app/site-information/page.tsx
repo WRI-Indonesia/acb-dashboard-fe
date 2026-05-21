@@ -569,17 +569,6 @@ export default function SiteInformation() {
 
           <div className="bg-[#E3E7D7] p-5 flex flex-col items-center justify-center text-center">
             <div className="bg-[#d3d8c3] w-full flex flex-col items-center justify-center text-center rounded-lg p-3">
-              <div className="w-10 h-10 bg-[#062c21]/10 rounded-full flex items-center justify-center mb-3">
-                <div className="relative w-12 h-12"> 
-                  <Image 
-                    src="/search.png" 
-                    alt="Search Icon" 
-                    fill
-                    sizes="51px"
-                    className="object-contain"
-                  />
-                </div>
-              </div>
               <h3 className="text-[#111A13] font-semibold text-xl">To start analysis, select the area on the map</h3>
             </div>
           </div>
