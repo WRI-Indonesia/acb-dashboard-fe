@@ -44,6 +44,8 @@ type LayerConfig = {
   styles: string;
   url: string;
   version: string;
+  wms_url: string;
+  wmts_url: string;
 };
 
 type TileCoord = [z: number, x: number, y: number];
@@ -438,7 +440,7 @@ export default function MapEditor() {
       const view = mapRef.current!.getView();
       const layer = activeInfoLayers[0];
 
-      const cleanUrl = layer.url.replace(/\?$/, '');
+      const cleanUrl = layer.wmts_url.replace(/\?$/, '');
       const wmsUrl = cleanUrl.replace(/\/gwc\/service\/wmts$/, '/wms');
       if (!wmsUrl) return;
 
